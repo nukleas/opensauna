@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos::web_sys;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use crate::components::{Button, OtpInput, LoadingOverlay};
+use crate::components::{Button, OtpInput, LoadingOverlay, IconChevronLeft};
 use crate::state::use_auth_state;
 
 #[wasm_bindgen]
@@ -131,7 +131,8 @@ pub fn OtpPage() -> impl IntoView {
             <div class="otp-container">
                 <div class="otp-header">
                     <button class="back-button" on:click=move |_| on_back()>
-                        "← Back"
+                        <IconChevronLeft size=crate::components::icons::IconSize::Sm />
+                        "Back"
                     </button>
                     <h1 class="otp-title">"Verify OTP"</h1>
                     <p class="otp-subtitle">"Enter the 6-digit code sent to your phone"</p>

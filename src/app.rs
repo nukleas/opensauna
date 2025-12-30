@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos_router::components::{Router, Route, Routes, Redirect};
 use leptos_router::path;
 
-use crate::state::{provide_auth_state, provide_pending_login};
+use crate::state::{provide_auth_state, provide_pending_login, provide_session_tracking_state};
 use crate::pages::{LoginPage, OtpPage, DashboardPage, LocationsPage, BookingPage, SessionsPage};
 
 #[component]
@@ -11,6 +11,8 @@ pub fn App() -> impl IntoView {
     let auth_state = provide_auth_state();
     // Provide pending login state for OTP flow
     let _ = provide_pending_login();
+    // Provide session tracking state
+    let _ = provide_session_tracking_state();
 
     // Restore session on mount
     Effect::new(move |_| {

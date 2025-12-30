@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos::web_sys;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use crate::components::{BottomNav, NavItem, PageLoading};
+use crate::components::{BottomNav, NavItem, PageLoading, IconSearch};
 use crate::models::location::Location;
 
 #[wasm_bindgen]
@@ -158,9 +158,12 @@ pub fn LocationsPage() -> impl IntoView {
                 } else {
                     view! {
                         <div class="locations-search">
+                            <span class="search-icon">
+                                <IconSearch size=crate::components::icons::IconSize::Sm />
+                            </span>
                             <input
                                 type="search"
-                                class="search-input full-width"
+                                class="search-input"
                                 placeholder="Search locations..."
                                 prop:value=move || search_query.get()
                                 on:input=move |ev| search_query.set(event_target_value(&ev))

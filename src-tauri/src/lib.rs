@@ -195,6 +195,28 @@ async fn api_get_locations(app: tauri::AppHandle) -> Result<serde_json::Value, S
         .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
 }
 
+/// Get available session types for a location and date
+#[tauri::command(rename_all = "camelCase")]
+async fn api_get_session_types(
+    app: tauri::AppHandle,
+    location_id: String,
+    selected_date: String,
+) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone()).await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let mut params = HashMap::new();
+    params.insert("selected_location_id".to_string(), location_id);
+    params.insert("selected_date".to_string(), selected_date);
+    params.insert("view_type".to_string(), "by_session_type".to_string());
+
+    let response_text = api_post_form("booking/getLevelTwo_v2", params, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+}
+
 /// Get available time slots for booking
 #[tauri::command(rename_all = "camelCase")]
 async fn api_show_slots(
@@ -208,14 +230,12 @@ async fn api_show_slots(
     let device_id = get_device_id(app).await?;
 
     let mut params = HashMap::new();
-    params.insert("booking_date".to_string(), booking_date);
-    params.insert("selected_location_id".to_string(), location_id.clone());
-    params.insert("location_id".to_string(), location_id);  // Some endpoints want both
-    params.insert("view_type".to_string(), "day".to_string());
-    params.insert("time".to_string(), "all".to_string());
-    if session_type != "all" {
-        params.insert("session_type".to_string(), session_type);
-    }
+    // Original app uses "selected_date" not "booking_date"
+    params.insert("selected_date".to_string(), booking_date);
+    params.insert("selected_location_id".to_string(), location_id);
+    params.insert("view_type".to_string(), "by_session_type".to_string());
+    params.insert("selected_time".to_string(), "all".to_string());
+    params.insert("session_type".to_string(), session_type);
 
     let response_text = api_post_form("booking/showSlots", params, Some(&token), &device_id).await?;
 
@@ -262,7 +282,8 @@ async fn api_delete_session(
     let device_id = get_device_id(app).await?;
 
     let mut params = HashMap::new();
-    params.insert("session_record_id".to_string(), session_record_id);
+    // API expects "booking_id" but we pass session_record_id value (original app does the same)
+    params.insert("booking_id".to_string(), session_record_id);
     params.insert("lead_record_id".to_string(), lead_record_id);
 
     let response_text = api_post_form("booking/deleteSession", params, Some(&token), &device_id).await?;
@@ -411,11 +432,152 @@ async fn clear_preferred_location(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+// ========== SESSION TRACKING COMMANDS ==========
+
+/// Store the active session state
+#[tauri::command]
+async fn store_active_session(
+    app: tauri::AppHandle,
+    session: serde_json::Value,
+) -> Result<(), String> {
+    let store = app.store("sessions.json").map_err(|e| e.to_string())?;
+    store.set("active_session", session);
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Get the active session state
+#[tauri::command]
+async fn get_active_session(app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
+    let store = app.store("sessions.json").map_err(|e| e.to_string())?;
+
+    if let Some(session) = store.get("active_session") {
+        Ok(Some(session.clone()))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Clear the active session state
+#[tauri::command]
+async fn clear_active_session(app: tauri::AppHandle) -> Result<(), String> {
+    let store = app.store("sessions.json").map_err(|e| e.to_string())?;
+    store.delete("active_session");
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Store session history (completed sessions)
+#[tauri::command]
+async fn store_session_history(
+    app: tauri::AppHandle,
+    session: serde_json::Value,
+) -> Result<(), String> {
+    let store = app.store("sessions.json").map_err(|e| e.to_string())?;
+
+    // Get existing history or create empty array
+    let mut history: Vec<serde_json::Value> = store
+        .get("session_history")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+
+    // Add new session to history
+    history.push(session);
+
+    // Keep only last 100 sessions
+    if history.len() > 100 {
+        let skip_count = history.len() - 100;
+        history = history.into_iter().skip(skip_count).collect();
+    }
+
+    store.set("session_history", serde_json::json!(history));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Get session history
+#[tauri::command]
+async fn get_session_history(app: tauri::AppHandle) -> Result<Vec<serde_json::Value>, String> {
+    let store = app.store("sessions.json").map_err(|e| e.to_string())?;
+
+    let history: Vec<serde_json::Value> = store
+        .get("session_history")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+
+    Ok(history)
+}
+
+/// API endpoint for syncing session check-in (graceful fallback)
+#[tauri::command(rename_all = "camelCase")]
+async fn api_checkin_session(
+    app: tauri::AppHandle,
+    session_record_id: String,
+    lead_record_id: String,
+) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone()).await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let mut params = HashMap::new();
+    params.insert("session_record_id".to_string(), session_record_id);
+    params.insert("lead_record_id".to_string(), lead_record_id);
+
+    // Try to sync with API - this endpoint may or may not exist
+    match api_post_form("booking/checkinSession", params, Some(&token), &device_id).await {
+        Ok(response_text) => {
+            serde_json::from_str(&response_text)
+                .map_err(|e| format!("Parse error: {}", e))
+        }
+        Err(e) => {
+            // API endpoint doesn't exist or failed - return success anyway
+            // Session tracking continues locally
+            println!("[API] Check-in sync failed (expected): {}", e);
+            Ok(serde_json::json!({
+                "status": "local_only",
+                "msg": "Session tracked locally, API sync not available"
+            }))
+        }
+    }
+}
+
+/// API endpoint for syncing session completion (graceful fallback)
+#[tauri::command(rename_all = "camelCase")]
+async fn api_complete_session(
+    app: tauri::AppHandle,
+    session_record_id: String,
+    lead_record_id: String,
+    actual_duration_seconds: i64,
+) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone()).await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let mut params = HashMap::new();
+    params.insert("session_record_id".to_string(), session_record_id);
+    params.insert("lead_record_id".to_string(), lead_record_id);
+    params.insert("actual_duration".to_string(), actual_duration_seconds.to_string());
+
+    // Try to sync with API - this endpoint may or may not exist
+    match api_post_form("booking/completeSession", params, Some(&token), &device_id).await {
+        Ok(response_text) => {
+            serde_json::from_str(&response_text)
+                .map_err(|e| format!("Parse error: {}", e))
+        }
+        Err(e) => {
+            println!("[API] Complete session sync failed (expected): {}", e);
+            Ok(serde_json::json!({
+                "status": "local_only",
+                "msg": "Session completion tracked locally, API sync not available"
+            }))
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             hash_password,
@@ -433,9 +595,18 @@ pub fn run() {
             api_verify_otp,
             api_get_dashboard,
             api_get_locations,
+            api_get_session_types,
             api_show_slots,
             api_book_session,
-            api_delete_session
+            api_delete_session,
+            // Session tracking commands
+            store_active_session,
+            get_active_session,
+            clear_active_session,
+            store_session_history,
+            get_session_history,
+            api_checkin_session,
+            api_complete_session
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

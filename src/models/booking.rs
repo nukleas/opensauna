@@ -18,6 +18,7 @@ pub struct TimeSlot {
     pub slot1: Option<String>,
     pub slot2: Option<String>,
     pub slot3: Option<String>,
+    #[serde(alias = "suana_no")]  // API has typo "suana_no" instead of "sauna_no"
     pub sauna_no: Option<String>,
     pub time_slot: Option<String>,
     pub is_available: Option<bool>,
@@ -77,6 +78,13 @@ pub struct GetLevelTwoRequest {
     pub booking_date: String,
     pub location_id: String,
     pub view_type: String,
+}
+
+/// Session type available for booking (from getLevelTwo_v2 API)
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct SessionType {
+    pub slot: Option<String>,
+    pub value: Option<String>,
 }
 
 impl BookSessionResponse {

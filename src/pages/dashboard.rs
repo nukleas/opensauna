@@ -2,9 +2,9 @@ use leptos::prelude::*;
 use leptos::web_sys;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use crate::components::{BottomNav, NavItem, SessionCard, EmptySessionList, PageLoading, Button};
-use crate::state::use_auth_state;
-use crate::models::dashboard::DashboardData;
+use crate::components::{BottomNav, NavItem, SessionCard, EmptySessionList, PageLoading, Button, IconLogOut, ActiveSessionView};
+use crate::state::{use_auth_state, use_session_tracking_state};
+use crate::models::dashboard::{DashboardData, PendingSession};
 
 #[wasm_bindgen]
 extern "C" {
@@ -24,10 +24,54 @@ fn navigate_to(path: &str) {
 #[component]
 pub fn DashboardPage() -> impl IntoView {
     let auth = use_auth_state();
+    let session_state = use_session_tracking_state();
 
     let dashboard_data: RwSignal<Option<DashboardData>> = RwSignal::new(None);
     let loading = RwSignal::new(true);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
+
+    // Signal to track which session was cancelled (set by SessionCard)
+    let (cancelled_session, set_cancelled_session) = signal::<Option<String>>(None);
+
+    // Signal to track which session should start (set by SessionCard)
+    let (start_session, set_start_session) = signal::<Option<PendingSession>>(None);
+
+    // Restore active session on mount
+    Effect::new(move |_| {
+        wasm_bindgen_futures::spawn_local(async move {
+            session_state.restore_session().await;
+        });
+    });
+
+    // Handle start session signal
+    Effect::new(move |_| {
+        if let Some(pending) = start_session.get() {
+            log(&format!("[Dashboard] Starting session: {:?}", pending.session_record_id));
+            set_start_session.set(None);
+
+            wasm_bindgen_futures::spawn_local(async move {
+                match session_state.start_session(&pending).await {
+                    Ok(()) => log("[Dashboard] Session started successfully"),
+                    Err(e) => log(&format!("[Dashboard] Failed to start session: {}", e)),
+                }
+            });
+        }
+    });
+
+    // Remove cancelled session from dashboard data when signal changes
+    Effect::new(move |_| {
+        if let Some(session_id) = cancelled_session.get() {
+            log(&format!("[Dashboard] Removing cancelled session: {}", session_id));
+            dashboard_data.update(|data| {
+                if let Some(ref mut d) = data {
+                    if let Some(ref mut sessions) = d.todays_pending_sessions {
+                        sessions.retain(|s| s.session_record_id.as_deref() != Some(&session_id));
+                    }
+                }
+            });
+            set_cancelled_session.set(None);
+        }
+    });
 
     // Fetch dashboard data on mount via Tauri backend
     Effect::new(move |_| {
@@ -94,11 +138,23 @@ pub fn DashboardPage() -> impl IntoView {
 
     view! {
         <div class="dashboard-page">
+            // Active session overlay (takes over the screen when there's an active session)
+            {move || {
+                session_state.active_session.get().map(|session| {
+                    view! {
+                        <ActiveSessionView
+                            session=session
+                        />
+                    }
+                })
+            }}
+
             {move || loading.get().then(|| view! { <PageLoading /> })}
 
             <div class="dashboard-header">
                 <h1 class="dashboard-title">"Welcome Back!"</h1>
                 <button class="logout-btn" on:click=move |_| on_logout()>
+                    <IconLogOut size=crate::components::icons::IconSize::Sm />
                     "Logout"
                 </button>
             </div>
@@ -148,7 +204,15 @@ pub fn DashboardPage() -> impl IntoView {
                                         view! {
                                             <div class="session-list">
                                                 {sessions.into_iter().map(|session| {
-                                                    view! { <SessionCard session=session show_cancel=true /> }
+                                                    view! {
+                                                        <SessionCard
+                                                            session=session
+                                                            show_cancel=true
+                                                            show_start=true
+                                                            on_cancelled=set_cancelled_session
+                                                            on_start=set_start_session
+                                                        />
+                                                    }
                                                 }).collect::<Vec<_>>()}
                                             </div>
                                         }.into_any()

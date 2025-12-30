@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos::web_sys;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use crate::components::{Button, TextInput, LoadingOverlay};
+use crate::components::{Button, TextInput, LoadingOverlay, IconFlame};
 use crate::state::use_auth_state;
 
 #[wasm_bindgen]
@@ -129,7 +129,10 @@ pub fn LoginPage() -> impl IntoView {
 
             <div class="login-container">
                 <div class="login-header">
-                    <h1 class="login-title">"HOTWORX"</h1>
+                    <div class="login-logo">
+                        <IconFlame size=crate::components::icons::IconSize::Xl />
+                    </div>
+                    <h1 class="login-title">"BOOKWORX"</h1>
                     <p class="login-subtitle">"Sign in to your account"</p>
                 </div>
 

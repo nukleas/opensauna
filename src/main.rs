@@ -1,4 +1,4 @@
-use hotworx_ui::app::App;
+use bookworx_ui::app::App;
 use leptos::prelude::*;
 
 fn main() {

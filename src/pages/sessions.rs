@@ -20,6 +20,20 @@ pub fn SessionsPage() -> impl IntoView {
     let loading = RwSignal::new(true);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
 
+    // Signal to track which session was cancelled (set by SessionCard)
+    let (cancelled_session, set_cancelled_session) = signal::<Option<String>>(None);
+
+    // Remove cancelled session from list when signal changes
+    Effect::new(move |_| {
+        if let Some(session_id) = cancelled_session.get() {
+            log(&format!("[Sessions] Removing cancelled session: {}", session_id));
+            pending_sessions.update(|sessions| {
+                sessions.retain(|s| s.session_record_id.as_deref() != Some(&session_id));
+            });
+            set_cancelled_session.set(None);
+        }
+    });
+
     // Fetch sessions on mount via Tauri backend
     Effect::new(move |_| {
         wasm_bindgen_futures::spawn_local(async move {
@@ -61,36 +75,6 @@ pub fn SessionsPage() -> impl IntoView {
         });
     });
 
-    let on_cancel_session = move |session_record_id: String, lead_record_id: String| {
-        wasm_bindgen_futures::spawn_local(async move {
-            log(&format!("[Sessions] Cancelling session {}", session_record_id));
-
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                "sessionRecordId": session_record_id,
-                "leadRecordId": lead_record_id
-            })).unwrap();
-
-            let promise = invoke("api_delete_session", args);
-
-            match JsFuture::from(promise).await {
-                Ok(_) => {
-                    log("[Sessions] Session cancelled successfully");
-                    // Remove session from the list
-                    pending_sessions.update(|sessions| {
-                        sessions.retain(|s| s.session_record_id.as_deref() != Some(&session_record_id));
-                    });
-                }
-                Err(e) => {
-                    log(&format!("[Sessions] Cancel error: {:?}", e));
-                    let err_str = js_sys::JSON::stringify(&e)
-                        .map(|s| s.as_string().unwrap_or_default())
-                        .unwrap_or_else(|_| format!("{:?}", e));
-                    error.set(Some(format!("Failed to cancel session: {}", err_str)));
-                }
-            }
-        });
-    };
-
     view! {
         <div class="sessions-page">
             {move || loading.get().then(|| view! { <PageLoading /> })}
@@ -113,14 +97,11 @@ pub fn SessionsPage() -> impl IntoView {
                             view! {
                                 <div class="session-list">
                                     {sessions.into_iter().map(|session| {
-                                        let session_id = session.session_record_id.clone().unwrap_or_default();
-                                        let lead_id = session.lead_record_id.clone().unwrap_or_default();
-                                        let on_cancel = on_cancel_session.clone();
                                         view! {
                                             <SessionCard
                                                 session=session
                                                 show_cancel=true
-                                                on_cancel=Box::new(move || on_cancel(session_id.clone(), lead_id.clone()))
+                                                on_cancelled=set_cancelled_session
                                             />
                                         }
                                     }).collect::<Vec<_>>()}

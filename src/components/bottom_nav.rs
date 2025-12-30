@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
+use crate::components::icons::{IconHome, IconCalendarPlus, IconCalendar};
 
 #[derive(Clone, PartialEq)]
 pub enum NavItem {
@@ -31,7 +32,9 @@ pub fn BottomNav(
                     move |_| navigate("/", Default::default())
                 }
             >
-                <span class="nav-icon">"🏠"</span>
+                <span class="nav-icon">
+                    <IconHome />
+                </span>
                 <span class="nav-label">"Home"</span>
             </button>
             <button
@@ -41,7 +44,9 @@ pub fn BottomNav(
                     move |_| navigate("/book", Default::default())
                 }
             >
-                <span class="nav-icon">"📅"</span>
+                <span class="nav-icon">
+                    <IconCalendarPlus />
+                </span>
                 <span class="nav-label">"Book"</span>
             </button>
             <button
@@ -51,7 +56,9 @@ pub fn BottomNav(
                     move |_| navigate("/sessions", Default::default())
                 }
             >
-                <span class="nav-icon">"📋"</span>
+                <span class="nav-icon">
+                    <IconCalendar />
+                </span>
                 <span class="nav-label">"Sessions"</span>
             </button>
         </nav>

@@ -3,8 +3,8 @@ use leptos::web_sys;
 use leptos_router::hooks::use_params_map;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use crate::components::{BottomNav, NavItem, PageLoading, Button};
-use crate::models::booking::TimeSlot;
+use crate::components::{BottomNav, NavItem, PageLoading, Button, IconChevronLeft};
+use crate::models::booking::{TimeSlot, SessionType};
 
 #[wasm_bindgen]
 extern "C" {
@@ -27,15 +27,18 @@ pub fn BookingPage() -> impl IntoView {
 
     let location_id = move || params.get().get("location_id").unwrap_or_default();
 
+    let session_types: RwSignal<Vec<SessionType>> = RwSignal::new(Vec::new());
+    let selected_session_type: RwSignal<Option<SessionType>> = RwSignal::new(None);
     let time_slots: RwSignal<Vec<TimeSlot>> = RwSignal::new(Vec::new());
     let selected_date = RwSignal::new(get_today_date());
     let selected_slot: RwSignal<Option<TimeSlot>> = RwSignal::new(None);
     let loading = RwSignal::new(true);
+    let session_types_loading = RwSignal::new(false);
     let booking_loading = RwSignal::new(false);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
     let success_msg: RwSignal<Option<String>> = RwSignal::new(None);
 
-    // Fetch time slots when date changes
+    // Fetch session types when date changes
     Effect::new(move |_| {
         let date = selected_date.get();
         let loc_id = location_id();
@@ -45,16 +48,79 @@ pub fn BookingPage() -> impl IntoView {
             return;
         }
 
+        // Reset selections when date changes
+        selected_session_type.set(None);
+        selected_slot.set(None);
+        time_slots.set(Vec::new());
+        session_types_loading.set(true);
+        error.set(None);
+
+        wasm_bindgen_futures::spawn_local(async move {
+            log(&format!("[Booking] Fetching session types for {} on {}", loc_id, date));
+
+            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                "locationId": loc_id,
+                "selectedDate": date
+            })).unwrap();
+
+            let promise = invoke("api_get_session_types", args);
+
+            match JsFuture::from(promise).await {
+                Ok(result) => {
+                    if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
+                        log(&format!("[Booking] Got session types response: {:?}", response));
+                        // API returns { list: [{slot: "HOT YOGA", value: "HOT YOGA"}, ...] }
+                        if let Some(types_json) = response.get("list") {
+                            if let Ok(types) = serde_json::from_value::<Vec<SessionType>>(types_json.clone()) {
+                                log(&format!("[Booking] Parsed {} session types", types.len()));
+                                session_types.set(types);
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    log(&format!("[Booking] Error fetching session types: {:?}", e));
+                    let err_str = js_sys::JSON::stringify(&e)
+                        .map(|s| s.as_string().unwrap_or_default())
+                        .unwrap_or_else(|_| format!("{:?}", e));
+                    error.set(Some(format!("Failed to load session types: {}", err_str)));
+                }
+            }
+
+            session_types_loading.set(false);
+            loading.set(false);
+        });
+    });
+
+    // Fetch time slots when session type is selected
+    Effect::new(move |_| {
+        let session_type = selected_session_type.get();
+        let date = selected_date.get();
+        let loc_id = location_id();
+
+        if loc_id.is_empty() || session_type.is_none() {
+            return;
+        }
+
+        let session_type = session_type.unwrap();
+        let session_type_name = session_type.value.clone().unwrap_or_default();
+
+        if session_type_name.is_empty() {
+            return;
+        }
+
+        // Reset slot selection
+        selected_slot.set(None);
         loading.set(true);
         error.set(None);
 
         wasm_bindgen_futures::spawn_local(async move {
-            log(&format!("[Booking] Fetching slots for {} on {}", loc_id, date));
+            log(&format!("[Booking] Fetching slots for {} - {} on {}", loc_id, session_type_name, date));
 
             let args = serde_wasm_bindgen::to_value(&serde_json::json!({
                 "bookingDate": date,
                 "locationId": loc_id,
-                "sessionType": "all"
+                "sessionType": session_type_name
             })).unwrap();
 
             let promise = invoke("api_show_slots", args);
@@ -62,11 +128,20 @@ pub fn BookingPage() -> impl IntoView {
             match JsFuture::from(promise).await {
                 Ok(result) => {
                     if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
-                        log(&format!("[Booking] Got slots response"));
-                        if let Some(data) = response.get("data") {
+                        log(&format!("[Booking] Got slots response: {:?}", response));
+
+                        // API returns slots directly as an array
+                        if response.is_array() {
+                            if let Ok(slots) = serde_json::from_value::<Vec<TimeSlot>>(response.clone()) {
+                                log(&format!("[Booking] Parsed {} slots from array", slots.len()));
+                                time_slots.set(slots);
+                            }
+                        }
+                        // Or nested under data.slots
+                        else if let Some(data) = response.get("data") {
                             if let Some(slots_json) = data.get("slots") {
                                 if let Ok(slots) = serde_json::from_value::<Vec<TimeSlot>>(slots_json.clone()) {
-                                    log(&format!("[Booking] Parsed {} slots", slots.len()));
+                                    log(&format!("[Booking] Parsed {} slots from data.slots", slots.len()));
                                     time_slots.set(slots);
                                 }
                             }
@@ -172,7 +247,8 @@ pub fn BookingPage() -> impl IntoView {
 
             <div class="booking-header">
                 <button class="back-button" on:click=move |_| on_back()>
-                    "← Back"
+                    <IconChevronLeft size=crate::components::icons::IconSize::Sm />
+                    "Back"
                 </button>
                 <h1 class="page-title">"Book Session"</h1>
             </div>
@@ -191,45 +267,120 @@ pub fn BookingPage() -> impl IntoView {
                     />
                 </div>
 
-                // Time slots
-                <div class="time-slots-section">
-                    <h2>"Available Time Slots"</h2>
+                // Session type selector
+                <div class="session-types-section">
+                    <h2>"Select Session Type"</h2>
                     {move || {
-                        let slots = time_slots.get();
-                        if slots.is_empty() && !loading.get() {
+                        if session_types_loading.get() {
                             view! {
-                                <div class="empty-state">
-                                    <p>"No available time slots"</p>
-                                </div>
+                                <div class="loading-indicator">"Loading session types..."</div>
                             }.into_any()
                         } else {
-                            view! {
-                                <div class="time-slots-grid">
-                                    {slots.into_iter().map(|slot| {
-                                        let slot_clone = slot.clone();
-                                        let is_selected = move || {
-                                            selected_slot.get().as_ref() == Some(&slot)
-                                        };
-                                        let slot_for_click = slot_clone.clone();
-                                        view! {
-                                            <button
-                                                class=move || if is_selected() { "time-slot selected" } else { "time-slot" }
-                                                on:click=move |_| selected_slot.set(Some(slot_for_click.clone()))
-                                            >
-                                                <span class="slot-time">
-                                                    {slot_clone.time_slot.clone().unwrap_or_else(|| "N/A".to_string())}
-                                                </span>
-                                                <span class="slot-session">
-                                                    {slot_clone.session_name.clone().unwrap_or_else(|| "Session".to_string())}
-                                                </span>
-                                            </button>
-                                        }
-                                    }).collect::<Vec<_>>()}
-                                </div>
-                            }.into_any()
+                            let types = session_types.get();
+                            if types.is_empty() {
+                                view! {
+                                    <div class="empty-state">
+                                        <p>"No session types available for this date"</p>
+                                    </div>
+                                }.into_any()
+                            } else {
+                                view! {
+                                    <div class="session-types-grid">
+                                        {types.into_iter().map(|st| {
+                                            let st_clone = st.clone();
+                                            let is_selected = move || {
+                                                selected_session_type.get().as_ref() == Some(&st)
+                                            };
+                                            let st_for_click = st_clone.clone();
+                                            let display_name = st_clone.slot.clone()
+                                                .unwrap_or_else(|| "Unknown".to_string());
+                                            view! {
+                                                <button
+                                                    class=move || if is_selected() { "session-type-card selected" } else { "session-type-card" }
+                                                    on:click=move |_| selected_session_type.set(Some(st_for_click.clone()))
+                                                >
+                                                    <span class="session-type-name">{display_name}</span>
+                                                </button>
+                                            }
+                                        }).collect::<Vec<_>>()}
+                                    </div>
+                                }.into_any()
+                            }
                         }
                     }}
                 </div>
+
+                // Time slots (only show after session type is selected)
+                {move || {
+                    if selected_session_type.get().is_some() {
+                        view! {
+                            <div class="time-slots-section">
+                                <h2>"Available Time Slots"</h2>
+                                {move || {
+                                    let slots = time_slots.get();
+                                    if loading.get() {
+                                        view! {
+                                            <div class="loading-indicator">"Loading time slots..."</div>
+                                        }.into_any()
+                                    } else if slots.is_empty() {
+                                        view! {
+                                            <div class="empty-state">
+                                                <p>"No available time slots"</p>
+                                            </div>
+                                        }.into_any()
+                                    } else {
+                                        view! {
+                                            <div class="time-slots-grid">
+                                                {slots.into_iter().map(|slot| {
+                                                    let slot_clone = slot.clone();
+                                                    let is_selected = move || {
+                                                        selected_slot.get().as_ref() == Some(&slot)
+                                                    };
+                                                    let slot_for_click = slot_clone.clone();
+
+                                                    // Count available spots (slot1/2/3 contain "available" when open)
+                                                    let is_available = |s: &Option<String>| {
+                                                        s.as_ref().map(|v| v.contains("available")).unwrap_or(false)
+                                                    };
+                                                    let spot1_open = is_available(&slot_clone.slot1);
+                                                    let spot2_open = is_available(&slot_clone.slot2);
+                                                    let spot3_open = is_available(&slot_clone.slot3);
+                                                    let available_count = [spot1_open, spot2_open, spot3_open].iter().filter(|&&x| x).count();
+
+                                                    view! {
+                                                        <button
+                                                            class=move || if is_selected() { "time-slot selected" } else { "time-slot" }
+                                                            on:click=move |_| selected_slot.set(Some(slot_for_click.clone()))
+                                                        >
+                                                            <span class="slot-time">
+                                                                {slot_clone.time_slot.clone().unwrap_or_else(|| "N/A".to_string())}
+                                                            </span>
+                                                            <div class="slot-availability">
+                                                                <span class=if spot1_open { "spot open" } else { "spot taken" }></span>
+                                                                <span class=if spot2_open { "spot open" } else { "spot taken" }></span>
+                                                                <span class=if spot3_open { "spot open" } else { "spot taken" }></span>
+                                                                <span class="availability-text">{format!("{}/3", available_count)}</span>
+                                                            </div>
+                                                        </button>
+                                                    }
+                                                }).collect::<Vec<_>>()}
+                                            </div>
+                                        }.into_any()
+                                    }
+                                }}
+                            </div>
+                        }.into_any()
+                    } else {
+                        view! {
+                            <div class="time-slots-section">
+                                <h2>"Available Time Slots"</h2>
+                                <div class="empty-state">
+                                    <p>"Select a session type to see available time slots"</p>
+                                </div>
+                            </div>
+                        }.into_any()
+                    }
+                }}
 
                 {move || error.get().map(|e| view! {
                     <div class="error-message">{e}</div>
