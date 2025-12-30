@@ -1,0 +1,442 @@
+use sha2::{Sha256, Digest};
+use tauri_plugin_store::StoreExt;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+const BASE_URL: &str = "https://sailposapi.hotworx.net/api/v1";
+
+/// Response from login/OTP verification
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoginResponse {
+    pub msg: Option<String>,
+    pub token: Option<String>,
+    pub two_factor: Option<String>,
+    pub error: Option<String>,
+    pub status: Option<String>,
+    pub data: Option<serde_json::Value>,
+}
+
+/// Make a form-urlencoded POST request to the Hotworx API
+async fn api_post_form(
+    endpoint: &str,
+    params: HashMap<String, String>,
+    auth_token: Option<&str>,
+    device_id: &str,
+) -> Result<String, String> {
+    let url = format!("{}/{}", BASE_URL, endpoint);
+
+    let client = reqwest::Client::new();
+    let mut request = client
+        .post(&url)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .header("User-Agent", "okhttp/4.9.3")
+        .header("sec-ch-ua-platform", "Android")
+        .header("application-version", "5.0.0")
+        .header("device-id", device_id);
+
+    if let Some(token) = auth_token {
+        request = request.header("Authorization", format!("Bearer {}", token));
+    }
+
+    // Build form body
+    let body: String = params
+        .iter()
+        .map(|(k, v)| format!("{}={}", urlencoding::encode(k), urlencoding::encode(v)))
+        .collect::<Vec<_>>()
+        .join("&");
+
+    println!("[API] POST {} with body: {}", url, body);
+
+    let response = request
+        .body(body)
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    let status = response.status();
+    let text = response.text().await.map_err(|e| format!("Failed to read response: {}", e))?;
+
+    println!("[API] Response status: {}, body: {}", status, &text[..text.len().min(500)]);
+
+    if !status.is_success() {
+        return Err(format!("HTTP {}: {}", status, text));
+    }
+
+    Ok(text)
+}
+
+/// Make a GET request to the Hotworx API
+async fn api_get(
+    endpoint: &str,
+    auth_token: Option<&str>,
+    device_id: &str,
+) -> Result<String, String> {
+    let url = format!("{}/{}", BASE_URL, endpoint);
+
+    let client = reqwest::Client::new();
+    let mut request = client
+        .get(&url)
+        .header("User-Agent", "okhttp/4.9.3")
+        .header("sec-ch-ua-platform", "Android")
+        .header("application-version", "5.0.0")
+        .header("device-id", device_id);
+
+    if let Some(token) = auth_token {
+        request = request.header("Authorization", format!("Bearer {}", token));
+    }
+
+    println!("[API] GET {}", url);
+
+    let response = request
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    let status = response.status();
+    let text = response.text().await.map_err(|e| format!("Failed to read response: {}", e))?;
+
+    println!("[API] Response status: {}, body: {}", status, &text[..text.len().min(500)]);
+
+    if !status.is_success() {
+        return Err(format!("HTTP {}: {}", status, text));
+    }
+
+    Ok(text)
+}
+
+/// Login with email and password (returns token, may require OTP)
+#[tauri::command]
+async fn api_login_with_password(
+    app: tauri::AppHandle,
+    email: String,
+    password: String,
+) -> Result<LoginResponse, String> {
+    // Hash password
+    let password_hash = {
+        let mut hasher = Sha256::new();
+        hasher.update(password.as_bytes());
+        hex::encode(hasher.finalize())
+    };
+
+    // Get device ID
+    let device_id = get_device_id(app).await?;
+
+    let mut params = HashMap::new();
+    params.insert("email_address".to_string(), email);
+    params.insert("password".to_string(), password_hash);
+    params.insert("device_id".to_string(), device_id.clone());
+
+    let response_text = api_post_form("loginwithpassword", params, None, &device_id).await?;
+
+    serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+}
+
+/// Verify OTP after password login
+#[tauri::command]
+async fn api_verify_otp(
+    app: tauri::AppHandle,
+    email: String,
+    password: String,
+    otp: String,
+    token: String,
+) -> Result<LoginResponse, String> {
+    // Hash password
+    let password_hash = {
+        let mut hasher = Sha256::new();
+        hasher.update(password.as_bytes());
+        hex::encode(hasher.finalize())
+    };
+
+    // Get device ID
+    let device_id = get_device_id(app).await?;
+
+    let mut params = HashMap::new();
+    params.insert("email_address".to_string(), email);
+    params.insert("password".to_string(), password_hash);
+    params.insert("phone_number".to_string(), String::new());
+    params.insert("device_id".to_string(), device_id.clone());
+    params.insert("otp".to_string(), otp);
+    params.insert("type".to_string(), "password".to_string());
+
+    let response_text = api_post_form("verifyOtp", params, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+}
+
+/// Get dashboard data (requires auth token)
+#[tauri::command]
+async fn api_get_dashboard(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    // Get stored auth token
+    let token = get_auth_token(app.clone()).await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+
+    // Get device ID
+    let device_id = get_device_id(app).await?;
+
+    let params = HashMap::new(); // Empty body for dashboard
+    let response_text = api_post_form("getDashboard", params, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+}
+
+/// Get booking locations (requires auth token)
+#[tauri::command]
+async fn api_get_locations(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone()).await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let response_text = api_get("booking/getBookingLocations_v2", Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+}
+
+/// Get available time slots for booking
+#[tauri::command(rename_all = "camelCase")]
+async fn api_show_slots(
+    app: tauri::AppHandle,
+    booking_date: String,
+    location_id: String,
+    session_type: String,
+) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone()).await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let mut params = HashMap::new();
+    params.insert("booking_date".to_string(), booking_date);
+    params.insert("selected_location_id".to_string(), location_id.clone());
+    params.insert("location_id".to_string(), location_id);  // Some endpoints want both
+    params.insert("view_type".to_string(), "day".to_string());
+    params.insert("time".to_string(), "all".to_string());
+    if session_type != "all" {
+        params.insert("session_type".to_string(), session_type);
+    }
+
+    let response_text = api_post_form("booking/showSlots", params, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+}
+
+/// Book a session
+#[tauri::command(rename_all = "camelCase")]
+async fn api_book_session(
+    app: tauri::AppHandle,
+    sauna_no: String,
+    time_slot: String,
+    booking_date: String,
+    session_type: String,
+    location_id: String,
+) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone()).await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let mut params = HashMap::new();
+    params.insert("sauna_no".to_string(), sauna_no);
+    params.insert("time_slot".to_string(), time_slot);
+    params.insert("booking_date".to_string(), booking_date);
+    params.insert("session_type".to_string(), session_type);
+    params.insert("selected_location_id".to_string(), location_id);
+
+    let response_text = api_post_form("booking/bookSession_v2", params, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+}
+
+/// Cancel/delete a session
+#[tauri::command(rename_all = "camelCase")]
+async fn api_delete_session(
+    app: tauri::AppHandle,
+    session_record_id: String,
+    lead_record_id: String,
+) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone()).await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let mut params = HashMap::new();
+    params.insert("session_record_id".to_string(), session_record_id);
+    params.insert("lead_record_id".to_string(), lead_record_id);
+
+    let response_text = api_post_form("booking/deleteSession", params, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+}
+
+/// Hash a password using SHA-256 (matching the original Hotworx app)
+#[tauri::command]
+fn hash_password(password: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(password.as_bytes());
+    let result = hasher.finalize();
+    hex::encode(result)
+}
+
+/// Get the device ID (or generate one if not exists)
+#[tauri::command]
+async fn get_device_id(app: tauri::AppHandle) -> Result<String, String> {
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+
+    if let Some(device_id) = store.get("device_id") {
+        if let Some(id) = device_id.as_str() {
+            return Ok(id.to_string());
+        }
+    }
+
+    // Generate a new device ID
+    let device_id = uuid::Uuid::new_v4().to_string();
+    store.set("device_id", serde_json::json!(device_id.clone()));
+    store.save().map_err(|e| e.to_string())?;
+
+    Ok(device_id)
+}
+
+/// Store the auth token securely
+#[tauri::command]
+async fn store_auth_token(app: tauri::AppHandle, token: String) -> Result<(), String> {
+    let store = app.store("auth.json").map_err(|e| e.to_string())?;
+    store.set("token", serde_json::json!(token));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Get the stored auth token
+#[tauri::command]
+async fn get_auth_token(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let store = app.store("auth.json").map_err(|e| e.to_string())?;
+
+    if let Some(token) = store.get("token") {
+        if let Some(t) = token.as_str() {
+            return Ok(Some(t.to_string()));
+        }
+    }
+
+    Ok(None)
+}
+
+/// Clear the auth token (logout)
+#[tauri::command]
+async fn clear_auth_token(app: tauri::AppHandle) -> Result<(), String> {
+    let store = app.store("auth.json").map_err(|e| e.to_string())?;
+    store.delete("token");
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Store pending login data for OTP flow (survives page navigation)
+#[tauri::command]
+async fn store_pending_login(
+    app: tauri::AppHandle,
+    email: String,
+    password: String,
+    token: String,
+) -> Result<(), String> {
+    let store = app.store("auth.json").map_err(|e| e.to_string())?;
+    store.set("pending_email", serde_json::json!(email));
+    store.set("pending_password", serde_json::json!(password));
+    store.set("pending_token", serde_json::json!(token));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Get pending login data for OTP verification
+#[tauri::command]
+async fn get_pending_login(app: tauri::AppHandle) -> Result<Option<(String, String, String)>, String> {
+    let store = app.store("auth.json").map_err(|e| e.to_string())?;
+
+    let email = store.get("pending_email").and_then(|v| v.as_str().map(String::from));
+    let password = store.get("pending_password").and_then(|v| v.as_str().map(String::from));
+    let token = store.get("pending_token").and_then(|v| v.as_str().map(String::from));
+
+    match (email, password, token) {
+        (Some(e), Some(p), Some(t)) => Ok(Some((e, p, t))),
+        _ => Ok(None),
+    }
+}
+
+/// Clear pending login data
+#[tauri::command]
+async fn clear_pending_login(app: tauri::AppHandle) -> Result<(), String> {
+    let store = app.store("auth.json").map_err(|e| e.to_string())?;
+    store.delete("pending_email");
+    store.delete("pending_password");
+    store.delete("pending_token");
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Store the user's preferred location
+#[tauri::command(rename_all = "camelCase")]
+async fn store_preferred_location(
+    app: tauri::AppHandle,
+    location_id: String,
+    location_name: String,
+) -> Result<(), String> {
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    store.set("preferred_location_id", serde_json::json!(location_id));
+    store.set("preferred_location_name", serde_json::json!(location_name));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Get the user's preferred location
+#[tauri::command]
+async fn get_preferred_location(app: tauri::AppHandle) -> Result<Option<(String, String)>, String> {
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+
+    let location_id = store.get("preferred_location_id").and_then(|v| v.as_str().map(String::from));
+    let location_name = store.get("preferred_location_name").and_then(|v| v.as_str().map(String::from));
+
+    match (location_id, location_name) {
+        (Some(id), Some(name)) => Ok(Some((id, name))),
+        _ => Ok(None),
+    }
+}
+
+/// Clear the user's preferred location
+#[tauri::command]
+async fn clear_preferred_location(app: tauri::AppHandle) -> Result<(), String> {
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    store.delete("preferred_location_id");
+    store.delete("preferred_location_name");
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .invoke_handler(tauri::generate_handler![
+            hash_password,
+            get_device_id,
+            store_auth_token,
+            get_auth_token,
+            clear_auth_token,
+            store_pending_login,
+            get_pending_login,
+            clear_pending_login,
+            store_preferred_location,
+            get_preferred_location,
+            clear_preferred_location,
+            api_login_with_password,
+            api_verify_otp,
+            api_get_dashboard,
+            api_get_locations,
+            api_show_slots,
+            api_book_session,
+            api_delete_session
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}

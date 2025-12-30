@@ -1,0 +1,272 @@
+use leptos::prelude::*;
+use leptos::web_sys;
+use leptos_router::hooks::use_params_map;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::JsFuture;
+use crate::components::{BottomNav, NavItem, PageLoading, Button};
+use crate::models::booking::TimeSlot;
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "core"])]
+    fn invoke(cmd: &str, args: JsValue) -> js_sys::Promise;
+
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
+fn navigate_to(path: &str) {
+    if let Some(window) = web_sys::window() {
+        let _ = window.location().set_href(path);
+    }
+}
+
+#[component]
+pub fn BookingPage() -> impl IntoView {
+    let params = use_params_map();
+
+    let location_id = move || params.get().get("location_id").unwrap_or_default();
+
+    let time_slots: RwSignal<Vec<TimeSlot>> = RwSignal::new(Vec::new());
+    let selected_date = RwSignal::new(get_today_date());
+    let selected_slot: RwSignal<Option<TimeSlot>> = RwSignal::new(None);
+    let loading = RwSignal::new(true);
+    let booking_loading = RwSignal::new(false);
+    let error: RwSignal<Option<String>> = RwSignal::new(None);
+    let success_msg: RwSignal<Option<String>> = RwSignal::new(None);
+
+    // Fetch time slots when date changes
+    Effect::new(move |_| {
+        let date = selected_date.get();
+        let loc_id = location_id();
+
+        if loc_id.is_empty() {
+            loading.set(false);
+            return;
+        }
+
+        loading.set(true);
+        error.set(None);
+
+        wasm_bindgen_futures::spawn_local(async move {
+            log(&format!("[Booking] Fetching slots for {} on {}", loc_id, date));
+
+            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                "bookingDate": date,
+                "locationId": loc_id,
+                "sessionType": "all"
+            })).unwrap();
+
+            let promise = invoke("api_show_slots", args);
+
+            match JsFuture::from(promise).await {
+                Ok(result) => {
+                    if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
+                        log(&format!("[Booking] Got slots response"));
+                        if let Some(data) = response.get("data") {
+                            if let Some(slots_json) = data.get("slots") {
+                                if let Ok(slots) = serde_json::from_value::<Vec<TimeSlot>>(slots_json.clone()) {
+                                    log(&format!("[Booking] Parsed {} slots", slots.len()));
+                                    time_slots.set(slots);
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    log(&format!("[Booking] Error: {:?}", e));
+                    let err_str = js_sys::JSON::stringify(&e)
+                        .map(|s| s.as_string().unwrap_or_default())
+                        .unwrap_or_else(|_| format!("{:?}", e));
+                    // Try to extract the actual error message from the API response
+                    let display_err = if err_str.contains("\"error\":") {
+                        // Parse out the error field from JSON-like string
+                        if let Some(start) = err_str.find("\"error\":\"") {
+                            let start = start + 9;
+                            if let Some(end) = err_str[start..].find("\"") {
+                                err_str[start..start+end].to_string()
+                            } else {
+                                err_str.clone()
+                            }
+                        } else {
+                            err_str.clone()
+                        }
+                    } else {
+                        err_str
+                    };
+                    error.set(Some(display_err));
+                }
+            }
+
+            loading.set(false);
+        });
+    });
+
+    let on_book = move || {
+        let slot = selected_slot.get();
+        let date = selected_date.get();
+        let loc_id = location_id();
+
+        if slot.is_none() {
+            error.set(Some("Please select a time slot".to_string()));
+            return;
+        }
+
+        let slot = slot.unwrap();
+        booking_loading.set(true);
+        error.set(None);
+
+        wasm_bindgen_futures::spawn_local(async move {
+            let sauna_no = slot.sauna_no.unwrap_or_default();
+            let time_slot = slot.time_slot.unwrap_or_default();
+            let session_type = slot.session_name.unwrap_or_else(|| "Hot Yoga".to_string());
+
+            log(&format!("[Booking] Booking session: {} at {} on {}", session_type, time_slot, date));
+
+            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                "saunaNo": sauna_no,
+                "timeSlot": time_slot,
+                "bookingDate": date,
+                "sessionType": session_type,
+                "locationId": loc_id
+            })).unwrap();
+
+            let promise = invoke("api_book_session", args);
+
+            match JsFuture::from(promise).await {
+                Ok(result) => {
+                    if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
+                        log(&format!("[Booking] Book response: {:?}", response));
+                        if response.get("error").is_none() || response.get("error").unwrap().is_null() {
+                            success_msg.set(Some("Session booked successfully!".to_string()));
+                            // Navigate back to dashboard after a short delay
+                            navigate_to("/");
+                        } else {
+                            let err = response.get("error")
+                                .and_then(|e| e.as_str())
+                                .unwrap_or("Booking failed");
+                            error.set(Some(err.to_string()));
+                        }
+                    }
+                }
+                Err(e) => {
+                    log(&format!("[Booking] Error: {:?}", e));
+                    let err_str = js_sys::JSON::stringify(&e)
+                        .map(|s| s.as_string().unwrap_or_default())
+                        .unwrap_or_else(|_| format!("{:?}", e));
+                    error.set(Some(format!("Booking failed: {}", err_str)));
+                }
+            }
+
+            booking_loading.set(false);
+        });
+    };
+
+    let on_back = move || {
+        navigate_to("/book");
+    };
+
+    view! {
+        <div class="booking-page">
+            {move || loading.get().then(|| view! { <PageLoading /> })}
+
+            <div class="booking-header">
+                <button class="back-button" on:click=move |_| on_back()>
+                    "← Back"
+                </button>
+                <h1 class="page-title">"Book Session"</h1>
+            </div>
+
+            <div class="booking-content">
+                // Date picker - restricted to today + 2 days (API allows within 3 days)
+                <div class="date-picker">
+                    <label>"Select Date"</label>
+                    <input
+                        type="date"
+                        class="date-input"
+                        min=get_today_date()
+                        max=get_max_date()
+                        prop:value=move || selected_date.get()
+                        on:input=move |ev| selected_date.set(event_target_value(&ev))
+                    />
+                </div>
+
+                // Time slots
+                <div class="time-slots-section">
+                    <h2>"Available Time Slots"</h2>
+                    {move || {
+                        let slots = time_slots.get();
+                        if slots.is_empty() && !loading.get() {
+                            view! {
+                                <div class="empty-state">
+                                    <p>"No available time slots"</p>
+                                </div>
+                            }.into_any()
+                        } else {
+                            view! {
+                                <div class="time-slots-grid">
+                                    {slots.into_iter().map(|slot| {
+                                        let slot_clone = slot.clone();
+                                        let is_selected = move || {
+                                            selected_slot.get().as_ref() == Some(&slot)
+                                        };
+                                        let slot_for_click = slot_clone.clone();
+                                        view! {
+                                            <button
+                                                class=move || if is_selected() { "time-slot selected" } else { "time-slot" }
+                                                on:click=move |_| selected_slot.set(Some(slot_for_click.clone()))
+                                            >
+                                                <span class="slot-time">
+                                                    {slot_clone.time_slot.clone().unwrap_or_else(|| "N/A".to_string())}
+                                                </span>
+                                                <span class="slot-session">
+                                                    {slot_clone.session_name.clone().unwrap_or_else(|| "Session".to_string())}
+                                                </span>
+                                            </button>
+                                        }
+                                    }).collect::<Vec<_>>()}
+                                </div>
+                            }.into_any()
+                        }
+                    }}
+                </div>
+
+                {move || error.get().map(|e| view! {
+                    <div class="error-message">{e}</div>
+                })}
+
+                // Book button
+                <div class="book-action">
+                    <Button
+                        label="Confirm Booking"
+                        loading=Signal::derive(move || booking_loading.get())
+                        disabled=Signal::derive(move || selected_slot.get().is_none())
+                        on_click=on_book
+                    />
+                </div>
+            </div>
+
+            <BottomNav active=Signal::derive(|| NavItem::Book) />
+        </div>
+    }
+}
+
+/// Get today's date in YYYY-MM-DD format
+fn get_today_date() -> String {
+    let now = js_sys::Date::new_0();
+    let year = now.get_full_year();
+    let month = now.get_month() + 1; // 0-indexed
+    let day = now.get_date();
+    format!("{:04}-{:02}-{:02}", year, month, day)
+}
+
+/// Get max booking date (today + 2 days) in YYYY-MM-DD format
+fn get_max_date() -> String {
+    let now = js_sys::Date::new_0();
+    // Add 2 days (API allows within 3 days including today)
+    now.set_date(now.get_date() + 2);
+    let year = now.get_full_year();
+    let month = now.get_month() + 1;
+    let day = now.get_date();
+    format!("{:04}-{:02}-{:02}", year, month, day)
+}
