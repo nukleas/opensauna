@@ -31,10 +31,12 @@ pub fn BookingPage() -> impl IntoView {
     let selected_session_type: RwSignal<Option<SessionType>> = RwSignal::new(None);
     let time_slots: RwSignal<Vec<TimeSlot>> = RwSignal::new(Vec::new());
     let selected_date = RwSignal::new(get_today_date());
-    let selected_slot: RwSignal<Option<TimeSlot>> = RwSignal::new(None);
+    let selected_slots: RwSignal<Vec<TimeSlot>> = RwSignal::new(Vec::new());
     let loading = RwSignal::new(true);
     let session_types_loading = RwSignal::new(false);
     let booking_loading = RwSignal::new(false);
+    let booking_progress = RwSignal::new(0usize);
+    let booking_total = RwSignal::new(0usize);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
     let success_msg: RwSignal<Option<String>> = RwSignal::new(None);
 
@@ -50,7 +52,7 @@ pub fn BookingPage() -> impl IntoView {
 
         // Reset selections when date changes
         selected_session_type.set(None);
-        selected_slot.set(None);
+        selected_slots.set(Vec::new());
         time_slots.set(Vec::new());
         session_types_loading.set(true);
         error.set(None);
@@ -110,7 +112,7 @@ pub fn BookingPage() -> impl IntoView {
         }
 
         // Reset slot selection
-        selected_slot.set(None);
+        selected_slots.set(Vec::new());
         loading.set(true);
         error.set(None);
 
@@ -178,59 +180,73 @@ pub fn BookingPage() -> impl IntoView {
     });
 
     let on_book = move || {
-        let slot = selected_slot.get();
+        let slots = selected_slots.get();
         let date = selected_date.get();
         let loc_id = location_id();
 
-        if slot.is_none() {
-            error.set(Some("Please select a time slot".to_string()));
+        if slots.is_empty() {
+            error.set(Some("Please select at least one time slot".to_string()));
             return;
         }
 
-        let slot = slot.unwrap();
         booking_loading.set(true);
+        booking_total.set(slots.len());
+        booking_progress.set(0);
         error.set(None);
 
         wasm_bindgen_futures::spawn_local(async move {
-            let sauna_no = slot.sauna_no.unwrap_or_default();
-            let time_slot = slot.time_slot.unwrap_or_default();
-            let session_type = slot.session_name.unwrap_or_else(|| "Hot Yoga".to_string());
+            let mut failed: Vec<String> = Vec::new();
+            let total = slots.len();
 
-            log(&format!("[Booking] Booking session: {} at {} on {}", session_type, time_slot, date));
+            for (idx, slot) in slots.into_iter().enumerate() {
+                let sauna_no = slot.sauna_no.clone().unwrap_or_default();
+                let time_slot = slot.time_slot.clone().unwrap_or_default();
+                let session_type = slot.session_name.clone().unwrap_or_else(|| "Hot Yoga".to_string());
 
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                "saunaNo": sauna_no,
-                "timeSlot": time_slot,
-                "bookingDate": date,
-                "sessionType": session_type,
-                "locationId": loc_id
-            })).unwrap();
+                log(&format!("[Booking] Booking {}/{}: {} at {} on {}", idx + 1, total, session_type, time_slot, date));
 
-            let promise = invoke("api_book_session", args);
+                let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                    "saunaNo": sauna_no,
+                    "timeSlot": time_slot,
+                    "bookingDate": date,
+                    "sessionType": session_type,
+                    "locationId": loc_id
+                })).unwrap();
 
-            match JsFuture::from(promise).await {
-                Ok(result) => {
-                    if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
-                        log(&format!("[Booking] Book response: {:?}", response));
-                        if response.get("error").is_none() || response.get("error").unwrap().is_null() {
-                            success_msg.set(Some("Session booked successfully!".to_string()));
-                            // Navigate back to dashboard after a short delay
-                            navigate_to("/");
-                        } else {
-                            let err = response.get("error")
-                                .and_then(|e| e.as_str())
-                                .unwrap_or("Booking failed");
-                            error.set(Some(err.to_string()));
+                let promise = invoke("api_book_session", args);
+
+                match JsFuture::from(promise).await {
+                    Ok(result) => {
+                        if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
+                            log(&format!("[Booking] Book response: {:?}", response));
+                            if response.get("error").is_some() && !response.get("error").unwrap().is_null() {
+                                let err = response.get("error")
+                                    .and_then(|e| e.as_str())
+                                    .unwrap_or("Unknown error");
+                                failed.push(format!("{}: {}", time_slot, err));
+                            }
                         }
                     }
+                    Err(e) => {
+                        log(&format!("[Booking] Error: {:?}", e));
+                        failed.push(time_slot.clone());
+                    }
                 }
-                Err(e) => {
-                    log(&format!("[Booking] Error: {:?}", e));
-                    let err_str = js_sys::JSON::stringify(&e)
-                        .map(|s| s.as_string().unwrap_or_default())
-                        .unwrap_or_else(|_| format!("{:?}", e));
-                    error.set(Some(format!("Booking failed: {}", err_str)));
-                }
+
+                booking_progress.set(idx + 1);
+            }
+
+            if failed.is_empty() {
+                success_msg.set(Some(format!("Successfully booked {} session(s)!", total)));
+                navigate_to("/");
+            } else {
+                let success_count = total - failed.len();
+                error.set(Some(format!(
+                    "Booked {} of {} sessions. Failed: {}",
+                    success_count,
+                    total,
+                    failed.join(", ")
+                )));
             }
 
             booking_loading.set(false);
@@ -308,6 +324,59 @@ pub fn BookingPage() -> impl IntoView {
                             }
                         }
                     }}
+                    // Set as Favorite button (only show when session type is selected)
+                    {move || {
+                        selected_session_type.get().map(|st| {
+                            let session_type_value = st.value.clone().unwrap_or_default();
+                            let session_type_display = st.slot.clone().unwrap_or_default();
+                            let loc_id = location_id();
+                            view! {
+                                <button
+                                    class="set-favorite-btn"
+                                    on:click=move |_| {
+                                        let type_value = session_type_value.clone();
+                                        let type_display = session_type_display.clone();
+                                        let loc = loc_id.clone();
+                                        wasm_bindgen_futures::spawn_local(async move {
+                                            // Get location name for storing
+                                            let loc_args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+                                            let loc_name = match JsFuture::from(invoke("get_preferred_location", loc_args)).await {
+                                                Ok(result) => {
+                                                    serde_wasm_bindgen::from_value::<Option<(String, String)>>(result)
+                                                        .ok()
+                                                        .flatten()
+                                                        .map(|(_, name)| name)
+                                                        .unwrap_or_default()
+                                                }
+                                                Err(_) => String::new(),
+                                            };
+
+                                            // Store preferred location if we have it
+                                            if !loc.is_empty() && !loc_name.is_empty() {
+                                                let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                                                    "locationId": loc,
+                                                    "locationName": loc_name
+                                                })).unwrap();
+                                                let _ = JsFuture::from(invoke("store_preferred_location", args)).await;
+                                            }
+
+                                            // Store preferred session type
+                                            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                                                "sessionType": type_value,
+                                                "sessionTypeDisplay": type_display
+                                            })).unwrap();
+                                            match JsFuture::from(invoke("store_preferred_session_type", args)).await {
+                                                Ok(_) => log("[Booking] Saved favorite session type"),
+                                                Err(e) => log(&format!("[Booking] Failed to save favorite: {:?}", e)),
+                                            }
+                                        });
+                                    }
+                                >
+                                    "Set as Favorite for Quick Book"
+                                </button>
+                            }
+                        })
+                    }}
                 </div>
 
                 // Time slots (only show after session type is selected)
@@ -315,7 +384,8 @@ pub fn BookingPage() -> impl IntoView {
                     if selected_session_type.get().is_some() {
                         view! {
                             <div class="time-slots-section">
-                                <h2>"Available Time Slots"</h2>
+                                <h2>"Select Time Slots"</h2>
+                                <p class="slots-hint">"Tap multiple slots for back-to-back sessions"</p>
                                 {move || {
                                     let slots = time_slots.get();
                                     if loading.get() {
@@ -334,7 +404,7 @@ pub fn BookingPage() -> impl IntoView {
                                                 {slots.into_iter().map(|slot| {
                                                     let slot_clone = slot.clone();
                                                     let is_selected = move || {
-                                                        selected_slot.get().as_ref() == Some(&slot)
+                                                        selected_slots.get().iter().any(|s| s == &slot)
                                                     };
                                                     let slot_for_click = slot_clone.clone();
 
@@ -350,7 +420,21 @@ pub fn BookingPage() -> impl IntoView {
                                                     view! {
                                                         <button
                                                             class=move || if is_selected() { "time-slot selected" } else { "time-slot" }
-                                                            on:click=move |_| selected_slot.set(Some(slot_for_click.clone()))
+                                                            on:click=move |_| {
+                                                                selected_slots.update(|slots| {
+                                                                    let s = slot_for_click.clone();
+                                                                    if let Some(idx) = slots.iter().position(|x| x == &s) {
+                                                                        slots.remove(idx);
+                                                                    } else {
+                                                                        slots.push(s);
+                                                                        // Sort by time
+                                                                        slots.sort_by(|a, b| {
+                                                                            a.time_slot.as_ref().unwrap_or(&String::new())
+                                                                                .cmp(b.time_slot.as_ref().unwrap_or(&String::new()))
+                                                                        });
+                                                                    }
+                                                                });
+                                                            }
                                                         >
                                                             <span class="slot-time">
                                                                 {slot_clone.time_slot.clone().unwrap_or_else(|| "N/A".to_string())}
@@ -373,7 +457,7 @@ pub fn BookingPage() -> impl IntoView {
                     } else {
                         view! {
                             <div class="time-slots-section">
-                                <h2>"Available Time Slots"</h2>
+                                <h2>"Select Time Slots"</h2>
                                 <div class="empty-state">
                                     <p>"Select a session type to see available time slots"</p>
                                 </div>
@@ -382,18 +466,65 @@ pub fn BookingPage() -> impl IntoView {
                     }
                 }}
 
+                // Booking summary (when multiple selected)
+                {move || {
+                    let slots = selected_slots.get();
+                    (slots.len() > 1).then(|| view! {
+                        <div class="booking-summary">
+                            <h3>{format!("{} sessions selected", slots.len())}</h3>
+                            <ul class="selected-times">
+                                {slots.iter().map(|s| {
+                                    let time = s.time_slot.clone().unwrap_or_default();
+                                    view! { <li>{time}</li> }
+                                }).collect::<Vec<_>>()}
+                            </ul>
+                        </div>
+                    })
+                }}
+
                 {move || error.get().map(|e| view! {
                     <div class="error-message">{e}</div>
                 })}
 
+                // Booking progress
+                {move || {
+                    booking_loading.get().then(|| {
+                        let p = booking_progress.get();
+                        let t = booking_total.get();
+                        view! {
+                            <div class="booking-progress">
+                                <div class="progress-bar">
+                                    <div
+                                        class="progress-fill"
+                                        style=move || format!("width: {}%", if t > 0 { p * 100 / t } else { 0 })
+                                    />
+                                </div>
+                                <span class="progress-text">{format!("Booking {} of {}...", p + 1, t)}</span>
+                            </div>
+                        }
+                    })
+                }}
+
                 // Book button
                 <div class="book-action">
-                    <Button
-                        label="Confirm Booking"
-                        loading=Signal::derive(move || booking_loading.get())
-                        disabled=Signal::derive(move || selected_slot.get().is_none())
-                        on_click=on_book
-                    />
+                    {move || {
+                        let count = selected_slots.get().len();
+                        let label = if count == 0 {
+                            "Select Time Slots".to_string()
+                        } else if count == 1 {
+                            "Confirm Booking".to_string()
+                        } else {
+                            format!("Book {} Sessions", count)
+                        };
+                        view! {
+                            <Button
+                                label=label
+                                loading=Signal::derive(move || booking_loading.get())
+                                disabled=Signal::derive(move || selected_slots.get().is_empty())
+                                on_click=on_book
+                            />
+                        }
+                    }}
                 </div>
             </div>
 

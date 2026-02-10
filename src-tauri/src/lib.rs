@@ -432,6 +432,93 @@ async fn clear_preferred_location(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Store the user's preferred session type (e.g., "HOT BLAST")
+#[tauri::command(rename_all = "camelCase")]
+async fn store_preferred_session_type(
+    app: tauri::AppHandle,
+    session_type: String,
+    session_type_display: String,
+) -> Result<(), String> {
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    store.set("preferred_session_type", serde_json::json!(session_type));
+    store.set("preferred_session_type_display", serde_json::json!(session_type_display));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Get the user's preferred session type
+#[tauri::command]
+async fn get_preferred_session_type(app: tauri::AppHandle) -> Result<Option<(String, String)>, String> {
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+
+    let session_type = store.get("preferred_session_type").and_then(|v| v.as_str().map(String::from));
+    let display = store.get("preferred_session_type_display").and_then(|v| v.as_str().map(String::from));
+
+    match (session_type, display) {
+        (Some(t), Some(d)) => Ok(Some((t, d))),
+        _ => Ok(None),
+    }
+}
+
+/// Get activity history (completed sessions) from the server
+/// Uses the activities/ActivityByLifeTime endpoint with pagination
+#[tauri::command(rename_all = "camelCase")]
+async fn api_get_activity_history(
+    app: tauri::AppHandle,
+    page_no: Option<u32>,
+    page_limit: Option<u32>,
+    session_type: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone()).await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    // Build query string
+    let page = page_no.unwrap_or(1);
+    let limit = page_limit.unwrap_or(50);
+    let session_filter = session_type.unwrap_or_else(|| "all".to_string());
+
+    let endpoint = format!(
+        "activities/ActivityByLifeTime?page_no={}&page_limit={}&session_type={}",
+        page, limit, urlencoding::encode(&session_filter)
+    );
+
+    let response_text = api_get(&endpoint, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+}
+
+/// Get all upcoming booked sessions (not just today)
+#[tauri::command]
+async fn api_get_upcoming_sessions(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone()).await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    // Try the booking history endpoint with "upcoming" filter
+    let mut params = HashMap::new();
+    params.insert("type".to_string(), "upcoming".to_string());
+
+    match api_post_form("booking/getBookingHistory", params, Some(&token), &device_id).await {
+        Ok(response_text) => {
+            serde_json::from_str(&response_text)
+                .map_err(|e| format!("Failed to parse response: {}", e))
+        }
+        Err(e) => {
+            // Fallback: if endpoint doesn't exist, return empty structure
+            println!("[API] getBookingHistory failed, falling back: {}", e);
+            Ok(serde_json::json!({
+                "status": "fallback",
+                "data": {
+                    "upcoming": [],
+                    "message": "Upcoming sessions endpoint not available"
+                }
+            }))
+        }
+    }
+}
+
 // ========== SESSION TRACKING COMMANDS ==========
 
 /// Store the active session state
@@ -591,6 +678,10 @@ pub fn run() {
             store_preferred_location,
             get_preferred_location,
             clear_preferred_location,
+            store_preferred_session_type,
+            get_preferred_session_type,
+            api_get_upcoming_sessions,
+            api_get_activity_history,
             api_login_with_password,
             api_verify_otp,
             api_get_dashboard,
@@ -610,4 +701,85 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hash_password() {
+        let password = "testPassword123";
+        let hash = hash_password(password);
+
+        // SHA-256 produces 64 hex characters
+        assert_eq!(hash.len(), 64);
+
+        // Same password should produce same hash
+        let hash2 = hash_password(password);
+        assert_eq!(hash, hash2);
+
+        // Different password should produce different hash
+        let different_hash = hash_password("differentPassword");
+        assert_ne!(hash, different_hash);
+    }
+
+    #[test]
+    fn test_hash_password_known_value() {
+        // SHA-256 of "password" - verified value
+        let hash = hash_password("password");
+        // Just verify it's a valid hex string of correct length
+        assert_eq!(hash.len(), 64);
+        assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+        // The actual SHA-256 hash of "password"
+        assert_eq!(
+            hash,
+            "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"
+        );
+    }
+
+    #[test]
+    fn test_hash_password_empty() {
+        let hash = hash_password("");
+        // SHA-256 of empty string is known
+        assert_eq!(hash.len(), 64);
+        // e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        assert_eq!(
+            hash,
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+    }
+
+    #[test]
+    fn test_login_response_deserialization() {
+        let json = r#"{"msg":"success","token":"abc123","two_factor":null,"error":null,"status":"ok"}"#;
+        let response: LoginResponse = serde_json::from_str(json).unwrap();
+
+        assert_eq!(response.msg, Some("success".to_string()));
+        assert_eq!(response.token, Some("abc123".to_string()));
+        assert!(response.two_factor.is_none());
+        assert!(response.error.is_none());
+        assert_eq!(response.status, Some("ok".to_string()));
+    }
+
+    #[test]
+    fn test_login_response_with_two_factor() {
+        let json = r#"{"msg":null,"token":"temp123","two_factor":"required","error":null,"status":"pending"}"#;
+        let response: LoginResponse = serde_json::from_str(json).unwrap();
+
+        assert!(response.msg.is_none());
+        assert_eq!(response.token, Some("temp123".to_string()));
+        assert_eq!(response.two_factor, Some("required".to_string()));
+        assert_eq!(response.status, Some("pending".to_string()));
+    }
+
+    #[test]
+    fn test_login_response_with_error() {
+        let json = r#"{"msg":null,"token":null,"two_factor":null,"error":"Invalid credentials","status":"error"}"#;
+        let response: LoginResponse = serde_json::from_str(json).unwrap();
+
+        assert!(response.token.is_none());
+        assert_eq!(response.error, Some("Invalid credentials".to_string()));
+        assert_eq!(response.status, Some("error".to_string()));
+    }
 }

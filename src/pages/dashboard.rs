@@ -27,8 +27,13 @@ pub fn DashboardPage() -> impl IntoView {
     let session_state = use_session_tracking_state();
 
     let dashboard_data: RwSignal<Option<DashboardData>> = RwSignal::new(None);
+    let all_upcoming_sessions: RwSignal<Vec<PendingSession>> = RwSignal::new(Vec::new());
     let loading = RwSignal::new(true);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
+
+    // Quick book preferences
+    let has_quick_book_prefs = RwSignal::new(false);
+    let quick_book_session_type = RwSignal::new(String::new());
 
     // Signal to track which session was cancelled (set by SessionCard)
     let (cancelled_session, set_cancelled_session) = signal::<Option<String>>(None);
@@ -125,6 +130,72 @@ pub fn DashboardPage() -> impl IntoView {
         });
     });
 
+    // Fetch all upcoming sessions (not just today)
+    Effect::new(move |_| {
+        wasm_bindgen_futures::spawn_local(async move {
+            log("[Dashboard] Fetching all upcoming sessions...");
+
+            let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+            let promise = invoke("api_get_upcoming_sessions", args);
+
+            match JsFuture::from(promise).await {
+                Ok(result) => {
+                    if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
+                        // Try to parse upcoming sessions from response
+                        if let Some(data) = response.get("data") {
+                            if let Some(upcoming) = data.get("upcoming") {
+                                if let Ok(sessions) = serde_json::from_value::<Vec<PendingSession>>(upcoming.clone()) {
+                                    log(&format!("[Dashboard] Got {} upcoming sessions", sessions.len()));
+                                    all_upcoming_sessions.set(sessions);
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    log(&format!("[Dashboard] Upcoming sessions error (non-fatal): {:?}", e));
+                }
+            }
+        });
+    });
+
+    // Check for quick book preferences
+    Effect::new(move |_| {
+        wasm_bindgen_futures::spawn_local(async move {
+            let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+
+            // Check for preferred location
+            let loc_promise = invoke("get_preferred_location", args.clone());
+            let type_promise = invoke("get_preferred_session_type", args);
+
+            let has_location = match JsFuture::from(loc_promise).await {
+                Ok(result) => {
+                    serde_wasm_bindgen::from_value::<Option<(String, String)>>(result)
+                        .ok()
+                        .flatten()
+                        .is_some()
+                }
+                Err(_) => false,
+            };
+
+            let session_type_display = match JsFuture::from(type_promise).await {
+                Ok(result) => {
+                    serde_wasm_bindgen::from_value::<Option<(String, String)>>(result)
+                        .ok()
+                        .flatten()
+                        .map(|(_, display)| display)
+                }
+                Err(_) => None,
+            };
+
+            if has_location && session_type_display.is_some() {
+                has_quick_book_prefs.set(true);
+                quick_book_session_type.set(session_type_display.unwrap_or_default());
+                log("[Dashboard] Quick book preferences found");
+            }
+        });
+    });
+
     let on_book_now = move || {
         navigate_to("/book");
     };
@@ -185,24 +256,63 @@ pub fn DashboardPage() -> impl IntoView {
                     }}
                 </div>
 
-                // Quick book button
+                // Quick book buttons
                 <div class="quick-book-section">
                     <Button
                         label="Book a Session"
                         on_click=on_book_now
                     />
+                    {move || {
+                        let has_prefs = has_quick_book_prefs.get();
+                        let session_type = quick_book_session_type.get();
+                        has_prefs.then(|| {
+                            let label = format!("Quick Book {}", session_type);
+                            view! {
+                                <Button
+                                    label=label
+                                    variant="secondary".to_string()
+                                    on_click=move || navigate_to("/quick-book")
+                                />
+                            }
+                        })
+                    }}
                 </div>
 
-                // Today's pending sessions
+                // All upcoming sessions (today + future)
                 <div class="section">
                     <h2 class="section-title">"Upcoming Sessions"</h2>
                     {move || {
-                        match dashboard_data.get() {
-                            Some(data) => {
-                                match data.todays_pending_sessions {
-                                    Some(sessions) if !sessions.is_empty() => {
+                        // First try all_upcoming_sessions, fall back to today's from dashboard
+                        let upcoming = all_upcoming_sessions.get();
+                        let today_sessions = dashboard_data.get()
+                            .and_then(|d| d.todays_pending_sessions)
+                            .unwrap_or_default();
+
+                        // Use all upcoming if available, otherwise fall back to today's
+                        let sessions = if !upcoming.is_empty() {
+                            upcoming
+                        } else {
+                            today_sessions
+                        };
+
+                        if sessions.is_empty() {
+                            view! {
+                                <EmptySessionList message="No upcoming sessions. Book one now!".to_string() />
+                            }.into_any()
+                        } else {
+                            // Group sessions by date
+                            let mut grouped: std::collections::BTreeMap<String, Vec<PendingSession>> = std::collections::BTreeMap::new();
+                            for session in sessions {
+                                let date = session.date.clone().unwrap_or_else(|| "Unknown Date".to_string());
+                                grouped.entry(date).or_default().push(session);
+                            }
+
+                            view! {
+                                <div class="session-list">
+                                    {grouped.into_iter().map(|(date, sessions)| {
                                         view! {
-                                            <div class="session-list">
+                                            <div class="session-date-group">
+                                                <h3 class="session-date-header">{date}</h3>
                                                 {sessions.into_iter().map(|session| {
                                                     view! {
                                                         <SessionCard
@@ -215,15 +325,9 @@ pub fn DashboardPage() -> impl IntoView {
                                                     }
                                                 }).collect::<Vec<_>>()}
                                             </div>
-                                        }.into_any()
-                                    }
-                                    _ => view! {
-                                        <EmptySessionList message="No upcoming sessions. Book one now!".to_string() />
-                                    }.into_any()
-                                }
-                            }
-                            None => view! {
-                                <EmptySessionList message="Loading...".to_string() />
+                                        }
+                                    }).collect::<Vec<_>>()}
+                                </div>
                             }.into_any()
                         }
                     }}

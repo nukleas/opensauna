@@ -4,6 +4,7 @@ pub mod dashboard;
 pub mod locations;
 pub mod booking;
 pub mod sessions;
+pub mod quick_book;
 
 pub use login::*;
 pub use otp::*;
@@ -11,3 +12,4 @@ pub use dashboard::*;
 pub use locations::*;
 pub use booking::*;
 pub use sessions::*;
+pub use quick_book::*;
