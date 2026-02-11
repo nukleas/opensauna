@@ -35,6 +35,9 @@
     "macOS": {
       "signingIdentity": "-",
       "minimumSystemVersion": "10.15"
+    },
+    "iOS": {
+      "developmentTeam": "8832K8LBLC"
     }
   }
 }

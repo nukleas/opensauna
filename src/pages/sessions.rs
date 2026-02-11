@@ -246,17 +246,6 @@ pub fn SessionsPage() -> impl IntoView {
                                 <EmptySessionList message="Loading activity history...".to_string() />
                             }.into_any()
                         } else {
-                            // For API data, we filter by display_date string
-                            // The API returns dates like "2026-02-02" or "Feb 2, 2026"
-                            let now = js_sys::Date::new_0();
-                            let today_ms = now.get_time() as i64;
-                            let day_ms: i64 = 24 * 60 * 60 * 1000;
-                            let cutoff_days = match filter.as_str() {
-                                "7days" => 7,
-                                "30days" => 30,
-                                _ => 365 * 10, // "all" - 10 years
-                            };
-
                             // For now, show all and let API handle pagination
                             // We'll filter client-side by keeping only recent entries
                             let filtered: Vec<_> = history.into_iter()

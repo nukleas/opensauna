@@ -23,9 +23,11 @@ fn navigate_to(path: &str) {
 /// Response from verify OTP API
 #[derive(Debug, Clone, serde::Deserialize)]
 struct VerifyOtpResponse {
+    #[allow(dead_code)]
     msg: Option<String>,
     token: Option<String>,
     error: Option<String>,
+    #[allow(dead_code)]
     data: Option<serde_json::Value>,
 }
 

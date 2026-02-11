@@ -1,8 +1,8 @@
-name: hotworx
+name: bookworx
 options:
-  bundleIdPrefix: com.naderheidari.hotworx
+  bundleIdPrefix: com.naderheidari.bookworx
   deploymentTarget:
-    iOS: 14.0
+    iOS: 13.0
 fileGroups: [../../src]
 configs:
   debug: debug
@@ -10,8 +10,8 @@ configs:
 settingGroups:
   app:
     base:
-      PRODUCT_NAME: hotworx
-      PRODUCT_BUNDLE_IDENTIFIER: com.naderheidari.hotworx
+      PRODUCT_NAME: BookWorx
+      PRODUCT_BUNDLE_IDENTIFIER: com.naderheidari.bookworx
 targetTemplates:
   app:
     type: application
@@ -24,20 +24,20 @@ targetTemplates:
     settings:
       groups: [app]
 targets:
-  hotworx_iOS:
+  bookworx_iOS:
     type: application
     platform: iOS
     sources:
       - path: Sources
       - path: Assets.xcassets
       - path: Externals
-      - path: hotworx_iOS
+      - path: bookworx_iOS
       - path: assets
         buildPhase: resources
         type: folder
       - path: LaunchScreen.storyboard
     info:
-      path: hotworx_iOS/Info.plist
+      path: bookworx_iOS/Info.plist
       properties:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
@@ -52,9 +52,9 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: 0.1.0
-        CFBundleVersion: "0.1.0"
+        CFBundleVersion: 0.1.0
     entitlements:
-      path: hotworx_iOS/hotworx_iOS.entitlements
+      path: bookworx_iOS/bookworx_iOS.entitlements
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full
@@ -80,7 +80,9 @@ targets:
       - sdk: UIKit.framework
       - sdk: WebKit.framework
     preBuildScripts:
-      - script: cargo tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}
+      - script: |
+          export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:$PATH"
+          cargo tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}
         name: Build Rust Code
         basedOnDependencyAnalysis: false
         outputFiles:

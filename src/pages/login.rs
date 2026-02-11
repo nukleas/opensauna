@@ -23,6 +23,7 @@ fn navigate_to(path: &str) {
 /// Response from login API
 #[derive(Debug, Clone, serde::Deserialize)]
 struct LoginResponse {
+    #[allow(dead_code)]
     msg: Option<String>,
     token: Option<String>,
     two_factor: Option<String>,
