@@ -1,6 +1,6 @@
 name: bookworx
 options:
-  bundleIdPrefix: com.naderheidari.bookworx
+  bundleIdPrefix: com.nukleas.bookworx
   deploymentTarget:
     iOS: 13.0
 fileGroups: [../../src]
@@ -11,7 +11,8 @@ settingGroups:
   app:
     base:
       PRODUCT_NAME: BookWorx
-      PRODUCT_BUNDLE_IDENTIFIER: com.naderheidari.bookworx
+      PRODUCT_BUNDLE_IDENTIFIER: com.nukleas.bookworx
+      DEVELOPMENT_TEAM: 8832K8LBLC
 targetTemplates:
   app:
     type: application
