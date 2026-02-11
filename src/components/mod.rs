@@ -6,6 +6,7 @@ pub mod session_card;
 pub mod icons;
 pub mod session_timer;
 pub mod active_session;
+pub mod toast;
 
 pub use button::*;
 pub use input::*;
@@ -15,3 +16,4 @@ pub use session_card::*;
 pub use icons::*;
 pub use session_timer::*;
 pub use active_session::*;
+pub use toast::*;

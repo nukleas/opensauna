@@ -19,7 +19,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://sailposapi.hotworx.net ipc: http://ipc.localhost; img-src 'self' asset: https://asset.localhost data:; font-src 'self' data:"
     }
   },
   "bundle": {
@@ -31,6 +31,10 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "signingIdentity": "-",
+      "minimumSystemVersion": "10.15"
+    }
   }
 }

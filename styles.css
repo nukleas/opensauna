@@ -1902,3 +1902,83 @@ body {
   background: hsl(185 70% 50% / 0.1);
   border-style: solid;
 }
+
+/* ===== Toast Notifications ===== */
+.toast {
+  position: fixed;
+  top: calc(var(--spacing-4) + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4) var(--spacing-5);
+  border-radius: var(--radius-lg);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  max-width: calc(100vw - var(--spacing-8));
+  box-shadow: var(--shadow-lg);
+  animation: toast-slide-in 0.3s ease-out;
+}
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(-50%) translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+.toast-success {
+  background: var(--success);
+  color: var(--success-foreground);
+}
+
+.toast-error {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+.toast-info {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.toast-message {
+  flex: 1;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: var(--spacing-1);
+  line-height: 1;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
+/* ===== Network Error Banner ===== */
+.network-error-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9998;
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+  text-align: center;
+  padding: var(--spacing-3);
+  padding-top: calc(var(--spacing-3) + env(safe-area-inset-top));
+  font-size: 0.875rem;
+  font-weight: 600;
+}

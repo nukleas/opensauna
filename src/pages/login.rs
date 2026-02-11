@@ -35,9 +35,6 @@ impl LoginResponse {
     }
 }
 
-// Test credentials - TODO: remove in production
-const TEST_EMAIL: &str = "nukleas2001@gmail.com";
-
 #[component]
 pub fn LoginPage() -> impl IntoView {
     let auth = use_auth_state();
@@ -49,8 +46,7 @@ pub fn LoginPage() -> impl IntoView {
         }
     });
 
-    // Pre-fill test credentials
-    let email = RwSignal::new(TEST_EMAIL.to_string());
+    let email = RwSignal::new(String::new());
     let password = RwSignal::new(String::new());
     let loading = RwSignal::new(false);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
@@ -68,7 +64,7 @@ pub fn LoginPage() -> impl IntoView {
         error.set(None);
 
         wasm_bindgen_futures::spawn_local(async move {
-            log(&format!("[Login] Attempting login for: {}", email_val));
+            log("[Login] Attempting login...");
 
             // Call backend API command
             let args = serde_wasm_bindgen::to_value(&serde_json::json!({
@@ -79,7 +75,7 @@ pub fn LoginPage() -> impl IntoView {
             let promise = invoke("api_login_with_password", args);
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    log(&format!("[Login] Got result: {:?}", result));
+                    log("[Login] Got result");
 
                     let response: LoginResponse = serde_wasm_bindgen::from_value(result)
                         .unwrap_or_else(|e| {

@@ -4,6 +4,7 @@ use leptos_router::path;
 
 use crate::state::{provide_auth_state, provide_pending_login, provide_session_tracking_state};
 use crate::pages::{LoginPage, OtpPage, DashboardPage, LocationsPage, BookingPage, SessionsPage, QuickBookPage};
+use crate::components::toast::{provide_toast_state, ToastContainer};
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -13,6 +14,8 @@ pub fn App() -> impl IntoView {
     let _ = provide_pending_login();
     // Provide session tracking state
     let _ = provide_session_tracking_state();
+    // Provide toast notification state
+    let _ = provide_toast_state();
 
     // Restore session on mount
     Effect::new(move |_| {
@@ -23,6 +26,7 @@ pub fn App() -> impl IntoView {
 
     view! {
         <Router>
+            <ToastContainer />
             <Routes fallback=|| view! { <Redirect path="/" /> }>
                 // Public routes
                 <Route path=path!("/login") view=LoginPage />

@@ -91,7 +91,7 @@ pub fn DashboardPage() -> impl IntoView {
                     // Parse the response - it's a DashboardResponse with data field
                     match serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
                         Ok(response) => {
-                            log(&format!("[Dashboard] Response: {}", serde_json::to_string_pretty(&response).unwrap_or_default()));
+                            log("[Dashboard] Got response");
 
                             if let Some(data) = response.get("data") {
                                 match serde_json::from_value::<DashboardData>(data.clone()) {

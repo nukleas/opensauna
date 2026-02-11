@@ -2,8 +2,71 @@ use sha2::{Sha256, Digest};
 use tauri_plugin_store::StoreExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use aes_gcm::{
+    aead::{Aead, KeyInit, OsRng},
+    Aes256Gcm, Nonce,
+};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 const BASE_URL: &str = "https://sailposapi.hotworx.net/api/v1";
+
+/// Derive an encryption key from the device ID (deterministic per-device)
+fn derive_key(device_id: &str) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(device_id.as_bytes());
+    hasher.update(b"bookworx-token-encryption-salt");
+    let result = hasher.finalize();
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&result);
+    key
+}
+
+/// Encrypt a string value
+fn encrypt_value(value: &str, device_id: &str) -> Result<String, String> {
+    let key = derive_key(device_id);
+    let cipher = Aes256Gcm::new_from_slice(&key)
+        .map_err(|e| format!("Cipher error: {}", e))?;
+
+    // Generate random nonce
+    let nonce_bytes: [u8; 12] = {
+        use aes_gcm::aead::rand_core::RngCore;
+        let mut bytes = [0u8; 12];
+        OsRng.fill_bytes(&mut bytes);
+        bytes
+    };
+    let nonce = Nonce::from_slice(&nonce_bytes);
+
+    let ciphertext = cipher.encrypt(nonce, value.as_bytes())
+        .map_err(|e| format!("Encrypt error: {}", e))?;
+
+    // Prepend nonce to ciphertext and base64 encode
+    let mut combined = nonce_bytes.to_vec();
+    combined.extend_from_slice(&ciphertext);
+    Ok(BASE64.encode(&combined))
+}
+
+/// Decrypt a string value
+fn decrypt_value(encrypted: &str, device_id: &str) -> Result<String, String> {
+    let key = derive_key(device_id);
+    let cipher = Aes256Gcm::new_from_slice(&key)
+        .map_err(|e| format!("Cipher error: {}", e))?;
+
+    let combined = BASE64.decode(encrypted)
+        .map_err(|e| format!("Base64 decode error: {}", e))?;
+
+    if combined.len() < 12 {
+        return Err("Invalid encrypted data".to_string());
+    }
+
+    let (nonce_bytes, ciphertext) = combined.split_at(12);
+    let nonce = Nonce::from_slice(nonce_bytes);
+
+    let plaintext = cipher.decrypt(nonce, ciphertext)
+        .map_err(|_| "Decryption failed - token may be corrupted".to_string())?;
+
+    String::from_utf8(plaintext)
+        .map_err(|e| format!("UTF-8 error: {}", e))
+}
 
 /// Response from login/OTP verification
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,7 +108,7 @@ async fn api_post_form(
         .collect::<Vec<_>>()
         .join("&");
 
-    println!("[API] POST {} with body: {}", url, body);
+    println!("[API] POST {}", url);
 
     let response = request
         .body(body)
@@ -56,7 +119,7 @@ async fn api_post_form(
     let status = response.status();
     let text = response.text().await.map_err(|e| format!("Failed to read response: {}", e))?;
 
-    println!("[API] Response status: {}, body: {}", status, &text[..text.len().min(500)]);
+    println!("[API] Response status: {}", status);
 
     if !status.is_success() {
         return Err(format!("HTTP {}: {}", status, text));
@@ -95,7 +158,7 @@ async fn api_get(
     let status = response.status();
     let text = response.text().await.map_err(|e| format!("Failed to read response: {}", e))?;
 
-    println!("[API] Response status: {}, body: {}", status, &text[..text.len().min(500)]);
+    println!("[API] Response status: {}", status);
 
     if !status.is_success() {
         return Err(format!("HTTP {}: {}", status, text));
@@ -323,8 +386,10 @@ async fn get_device_id(app: tauri::AppHandle) -> Result<String, String> {
 /// Store the auth token securely
 #[tauri::command]
 async fn store_auth_token(app: tauri::AppHandle, token: String) -> Result<(), String> {
+    let device_id = get_device_id(app.clone()).await?;
+    let encrypted = encrypt_value(&token, &device_id)?;
     let store = app.store("auth.json").map_err(|e| e.to_string())?;
-    store.set("token", serde_json::json!(token));
+    store.set("token", serde_json::json!(encrypted));
     store.save().map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -333,13 +398,19 @@ async fn store_auth_token(app: tauri::AppHandle, token: String) -> Result<(), St
 #[tauri::command]
 async fn get_auth_token(app: tauri::AppHandle) -> Result<Option<String>, String> {
     let store = app.store("auth.json").map_err(|e| e.to_string())?;
-
-    if let Some(token) = store.get("token") {
-        if let Some(t) = token.as_str() {
-            return Ok(Some(t.to_string()));
+    if let Some(token_val) = store.get("token") {
+        if let Some(encrypted) = token_val.as_str() {
+            let device_id = get_device_id(app).await?;
+            // Try to decrypt; if it fails, the token might be from before encryption was added
+            match decrypt_value(encrypted, &device_id) {
+                Ok(token) => return Ok(Some(token)),
+                Err(_) => {
+                    // Fallback: treat as plain text (migration from old format)
+                    return Ok(Some(encrypted.to_string()));
+                }
+            }
         }
     }
-
     Ok(None)
 }
 
