@@ -1,9 +1,7 @@
 use leptos::prelude::*;
 
 #[component]
-pub fn LoadingSpinner(
-    #[prop(optional)] size: Option<String>,
-) -> impl IntoView {
+pub fn LoadingSpinner(#[prop(optional)] size: Option<String>) -> impl IntoView {
     let size = size.unwrap_or_else(|| "medium".to_string());
     let class = format!("loading-spinner loading-spinner-{}", size);
 
@@ -15,9 +13,7 @@ pub fn LoadingSpinner(
 }
 
 #[component]
-pub fn LoadingOverlay(
-    #[prop(optional)] message: Option<String>,
-) -> impl IntoView {
+pub fn LoadingOverlay(#[prop(optional)] message: Option<String>) -> impl IntoView {
     view! {
         <div class="loading-overlay">
             <div class="loading-content">

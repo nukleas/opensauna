@@ -1,9 +1,9 @@
+use crate::components::{BottomNav, Button, IconChevronLeft, NavItem, PageLoading};
+use crate::models::booking::TimeSlot;
 use leptos::prelude::*;
 use leptos::web_sys;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use crate::components::{BottomNav, NavItem, PageLoading, Button, IconChevronLeft};
-use crate::models::booking::TimeSlot;
 
 #[wasm_bindgen]
 extern "C" {
@@ -53,11 +53,15 @@ pub fn QuickBookPage() -> impl IntoView {
             let type_result = JsFuture::from(type_promise).await;
 
             let loc_parsed = loc_result.ok().and_then(|v| {
-                serde_wasm_bindgen::from_value::<Option<(String, String)>>(v).ok().flatten()
+                serde_wasm_bindgen::from_value::<Option<(String, String)>>(v)
+                    .ok()
+                    .flatten()
             });
 
             let type_parsed = type_result.ok().and_then(|v| {
-                serde_wasm_bindgen::from_value::<Option<(String, String)>>(v).ok().flatten()
+                serde_wasm_bindgen::from_value::<Option<(String, String)>>(v)
+                    .ok()
+                    .flatten()
             });
 
             if loc_parsed.is_none() || type_parsed.is_none() {
@@ -67,7 +71,10 @@ pub fn QuickBookPage() -> impl IntoView {
                 return;
             }
 
-            log(&format!("[QuickBook] Loaded: loc={:?}, type={:?}", loc_parsed, type_parsed));
+            log(&format!(
+                "[QuickBook] Loaded: loc={:?}, type={:?}",
+                loc_parsed, type_parsed
+            ));
             location.set(loc_parsed);
             session_type.set(type_parsed);
             loading.set(false);
@@ -93,22 +100,30 @@ pub fn QuickBookPage() -> impl IntoView {
         error.set(None);
 
         wasm_bindgen_futures::spawn_local(async move {
-            log(&format!("[QuickBook] Fetching slots for {} - {} on {}", loc_id, type_value, date));
+            log(&format!(
+                "[QuickBook] Fetching slots for {} - {} on {}",
+                loc_id, type_value, date
+            ));
 
             let args = serde_wasm_bindgen::to_value(&serde_json::json!({
                 "bookingDate": date,
                 "locationId": loc_id,
                 "sessionType": type_value
-            })).unwrap();
+            }))
+            .unwrap();
 
             let promise = invoke("api_show_slots", args);
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
+                    if let Ok(response) =
+                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                    {
                         // API returns slots directly as an array
                         if response.is_array() {
-                            if let Ok(slots) = serde_json::from_value::<Vec<TimeSlot>>(response.clone()) {
+                            if let Ok(slots) =
+                                serde_json::from_value::<Vec<TimeSlot>>(response.clone())
+                            {
                                 log(&format!("[QuickBook] Got {} slots", slots.len()));
                                 time_slots.set(slots);
                             }
@@ -116,7 +131,9 @@ pub fn QuickBookPage() -> impl IntoView {
                         // Or nested under data.slots
                         else if let Some(data) = response.get("data") {
                             if let Some(slots_json) = data.get("slots") {
-                                if let Ok(slots) = serde_json::from_value::<Vec<TimeSlot>>(slots_json.clone()) {
+                                if let Ok(slots) =
+                                    serde_json::from_value::<Vec<TimeSlot>>(slots_json.clone())
+                                {
                                     time_slots.set(slots);
                                 }
                             }
@@ -168,7 +185,13 @@ pub fn QuickBookPage() -> impl IntoView {
                 let sauna_no = slot.sauna_no.clone().unwrap_or_default();
                 let time_slot = slot.time_slot.clone().unwrap_or_default();
 
-                log(&format!("[QuickBook] Booking {}/{}: {} at {}", idx + 1, total, session_type_value, time_slot));
+                log(&format!(
+                    "[QuickBook] Booking {}/{}: {} at {}",
+                    idx + 1,
+                    total,
+                    session_type_value,
+                    time_slot
+                ));
 
                 let args = serde_wasm_bindgen::to_value(&serde_json::json!({
                     "saunaNo": sauna_no,
@@ -176,15 +199,21 @@ pub fn QuickBookPage() -> impl IntoView {
                     "bookingDate": date,
                     "sessionType": session_type_value,
                     "locationId": loc_id
-                })).unwrap();
+                }))
+                .unwrap();
 
                 let promise = invoke("api_book_session", args);
 
                 match JsFuture::from(promise).await {
                     Ok(result) => {
-                        if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
-                            if response.get("error").is_some() && !response.get("error").unwrap().is_null() {
-                                let err = response.get("error")
+                        if let Ok(response) =
+                            serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                        {
+                            if response.get("error").is_some()
+                                && !response.get("error").unwrap().is_null()
+                            {
+                                let err = response
+                                    .get("error")
                                     .and_then(|e| e.as_str())
                                     .unwrap_or("Unknown error");
                                 failed.push(format!("{}: {}", time_slot, err));
@@ -200,7 +229,10 @@ pub fn QuickBookPage() -> impl IntoView {
             }
 
             if failed.is_empty() {
-                log(&format!("[QuickBook] Successfully booked {} sessions!", total));
+                log(&format!(
+                    "[QuickBook] Successfully booked {} sessions!",
+                    total
+                ));
                 navigate_to("/");
             } else {
                 let success_count = total - failed.len();

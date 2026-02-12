@@ -1,6 +1,6 @@
-use leptos::prelude::*;
-use crate::api::client::{get_auth_token, store_auth_token, clear_auth_token, ApiClient};
+use crate::api::client::{clear_auth_token, get_auth_token, store_auth_token, ApiClient};
 use crate::models::auth::UserProfile;
+use leptos::prelude::*;
 
 /// Global authentication state
 #[derive(Clone, Copy)]

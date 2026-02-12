@@ -1,9 +1,9 @@
+use crate::components::{BottomNav, IconSearch, NavItem, PageLoading};
+use crate::models::location::Location;
 use leptos::prelude::*;
 use leptos::web_sys;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use crate::components::{BottomNav, NavItem, PageLoading, IconSearch};
-use crate::models::location::Location;
 
 #[wasm_bindgen]
 extern "C" {
@@ -38,9 +38,13 @@ pub fn LocationsPage() -> impl IntoView {
             let promise = invoke("get_preferred_location", args);
 
             if let Ok(result) = JsFuture::from(promise).await {
-                if let Ok(pref) = serde_wasm_bindgen::from_value::<Option<(String, String)>>(result) {
+                if let Ok(pref) = serde_wasm_bindgen::from_value::<Option<(String, String)>>(result)
+                {
                     if let Some((id, name)) = pref {
-                        log(&format!("[Locations] Found preferred location: {} ({})", name, id));
+                        log(&format!(
+                            "[Locations] Found preferred location: {} ({})",
+                            name, id
+                        ));
                         preferred_location.set(Some((id, name)));
                     }
                 }
@@ -53,14 +57,19 @@ pub fn LocationsPage() -> impl IntoView {
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
+                    if let Ok(response) =
+                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                    {
                         log("[Locations] Got response");
-                        let locs_json = response.get("data")
+                        let locs_json = response
+                            .get("data")
                             .and_then(|d| d.get("locations"))
                             .or_else(|| response.get("locations"));
 
                         if let Some(locs_json) = locs_json {
-                            if let Ok(locs) = serde_json::from_value::<Vec<Location>>(locs_json.clone()) {
+                            if let Ok(locs) =
+                                serde_json::from_value::<Vec<Location>>(locs_json.clone())
+                            {
                                 log(&format!("[Locations] Parsed {} locations", locs.len()));
                                 locations.set(locs);
                             }
@@ -85,7 +94,8 @@ pub fn LocationsPage() -> impl IntoView {
         if query.is_empty() {
             locations.get()
         } else {
-            locations.get()
+            locations
+                .get()
                 .into_iter()
                 .filter(|loc| loc.location_name.to_lowercase().contains(&query))
                 .collect()
@@ -101,7 +111,8 @@ pub fn LocationsPage() -> impl IntoView {
             let args = serde_wasm_bindgen::to_value(&serde_json::json!({
                 "locationId": id,
                 "locationName": name
-            })).unwrap();
+            }))
+            .unwrap();
             let _ = JsFuture::from(invoke("store_preferred_location", args)).await;
         });
 

@@ -3,11 +3,11 @@ use leptos::prelude::*;
 /// Icon size variants
 #[derive(Clone, Copy, Default)]
 pub enum IconSize {
-    Sm,     // 16px
+    Sm, // 16px
     #[default]
-    Md,     // 20px
-    Lg,     // 24px
-    Xl,     // 32px
+    Md, // 20px
+    Lg, // 24px
+    Xl, // 32px
 }
 
 impl IconSize {

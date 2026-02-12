@@ -16,13 +16,17 @@ fn format_time(total_seconds: i64) -> String {
 #[component]
 pub fn SessionTimer(
     /// Elapsed time in seconds
-    #[prop(into)] elapsed_seconds: Signal<i64>,
+    #[prop(into)]
+    elapsed_seconds: Signal<i64>,
     /// Total planned duration in seconds
-    #[prop(into)] total_seconds: Signal<i64>,
+    #[prop(into)]
+    total_seconds: Signal<i64>,
     /// Whether to show countdown (remaining) or elapsed time
-    #[prop(optional)] show_countdown: Option<bool>,
+    #[prop(optional)]
+    show_countdown: Option<bool>,
     /// Size variant: "large" for active session view, "small" for cards
-    #[prop(optional)] size: Option<String>,
+    #[prop(optional)]
+    size: Option<String>,
 ) -> impl IntoView {
     let show_countdown = show_countdown.unwrap_or(true);
     let size = size.unwrap_or_else(|| "large".to_string());

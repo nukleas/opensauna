@@ -1,10 +1,12 @@
 use leptos::prelude::*;
-use leptos_router::components::{Router, Route, Routes, Redirect};
+use leptos_router::components::{Redirect, Route, Router, Routes};
 use leptos_router::path;
 
-use crate::state::{provide_auth_state, provide_pending_login, provide_session_tracking_state};
-use crate::pages::{LoginPage, OtpPage, DashboardPage, LocationsPage, BookingPage, SessionsPage, QuickBookPage};
 use crate::components::toast::{provide_toast_state, ToastContainer};
+use crate::pages::{
+    BookingPage, DashboardPage, LocationsPage, LoginPage, OtpPage, QuickBookPage, SessionsPage,
+};
+use crate::state::{provide_auth_state, provide_pending_login, provide_session_tracking_state};
 
 #[component]
 pub fn App() -> impl IntoView {

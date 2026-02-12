@@ -53,31 +53,43 @@ pub struct Summary {
 
 impl Summary {
     pub fn sessions_count(&self) -> String {
-        self.total_sessions.clone().unwrap_or_else(|| "0".to_string())
+        self.total_sessions
+            .clone()
+            .unwrap_or_else(|| "0".to_string())
     }
 
     pub fn calories_burned(&self) -> String {
-        self.total_cal_burned.clone().unwrap_or_else(|| "0".to_string())
+        self.total_cal_burned
+            .clone()
+            .unwrap_or_else(|| "0".to_string())
     }
 
     pub fn streak(&self) -> String {
-        self.continious_streak.clone().unwrap_or_else(|| "0".to_string())
+        self.continious_streak
+            .clone()
+            .unwrap_or_else(|| "0".to_string())
     }
 }
 
 impl PendingSession {
     /// Get a display-friendly time string
     pub fn display_time(&self) -> String {
-        self.slot.clone().unwrap_or_else(|| "Unknown time".to_string())
+        self.slot
+            .clone()
+            .unwrap_or_else(|| "Unknown time".to_string())
     }
 
     /// Get the session display name
     pub fn display_name(&self) -> String {
-        self.session_name.clone().unwrap_or_else(|| "Session".to_string())
+        self.session_name
+            .clone()
+            .unwrap_or_else(|| "Session".to_string())
     }
 
     /// Get location display name
     pub fn display_location(&self) -> String {
-        self.location_name.clone().unwrap_or_else(|| "Unknown location".to_string())
+        self.location_name
+            .clone()
+            .unwrap_or_else(|| "Unknown location".to_string())
     }
 }

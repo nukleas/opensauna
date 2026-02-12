@@ -1,9 +1,13 @@
-use crate::api::client::{ApiClient, ApiError, hash_password, get_device_id};
+use crate::api::client::{get_device_id, hash_password, ApiClient, ApiError};
 use crate::models::auth::{LoginRequest, LoginResponse, OtpLoginRequest, VerifyOtpRequest};
 
 impl ApiClient {
     /// Login with email and password
-    pub async fn login_with_password(&self, email: &str, password: &str) -> Result<LoginResponse, ApiError> {
+    pub async fn login_with_password(
+        &self,
+        email: &str,
+        password: &str,
+    ) -> Result<LoginResponse, ApiError> {
         // Hash the password
         let hashed_password = hash_password(password).await?;
 
@@ -38,7 +42,7 @@ impl ApiClient {
     pub async fn verify_otp(
         &self,
         email: &str,
-        password_hash: &str,  // Already hashed password
+        password_hash: &str, // Already hashed password
         phone: &str,
         otp: &str,
     ) -> Result<LoginResponse, ApiError> {
@@ -50,7 +54,7 @@ impl ApiClient {
             phone_number: phone.to_string(),
             device_id,
             otp: otp.to_string(),
-            login_type: "password".to_string(),  // "password" for password-based login
+            login_type: "password".to_string(), // "password" for password-based login
         };
 
         self.post_form("verifyOtp", &request).await

@@ -1,8 +1,8 @@
+use crate::models::dashboard::PendingSession;
+use crate::models::session_tracking::{SessionState, TrackedSession};
 use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use crate::models::session_tracking::{TrackedSession, SessionState};
-use crate::models::dashboard::PendingSession;
 
 #[wasm_bindgen]
 extern "C" {
@@ -55,15 +55,19 @@ impl SessionTrackingState {
         tracked.started_at = Some(now_ms());
         tracked.state = SessionState::Active;
 
-        log(&format!("[SessionState] Starting session: {:?}", tracked.session_record_id));
+        log(&format!(
+            "[SessionState] Starting session: {:?}",
+            tracked.session_record_id
+        ));
 
         // Store in Tauri store
-        let session_json = serde_json::to_value(&tracked)
-            .map_err(|e| format!("Serialize error: {}", e))?;
+        let session_json =
+            serde_json::to_value(&tracked).map_err(|e| format!("Serialize error: {}", e))?;
 
         let args = serde_wasm_bindgen::to_value(&serde_json::json!({
             "session": session_json
-        })).map_err(|e| format!("Args error: {}", e))?;
+        }))
+        .map_err(|e| format!("Args error: {}", e))?;
 
         JsFuture::from(invoke("store_active_session", args))
             .await
@@ -73,7 +77,8 @@ impl SessionTrackingState {
         let checkin_args = serde_wasm_bindgen::to_value(&serde_json::json!({
             "sessionRecordId": tracked.session_record_id,
             "leadRecordId": tracked.lead_record_id
-        })).map_err(|e| format!("Args error: {}", e))?;
+        }))
+        .map_err(|e| format!("Args error: {}", e))?;
 
         // Fire and forget - we don't care if API sync fails
         let _ = JsFuture::from(invoke("api_checkin_session", checkin_args)).await;
@@ -86,10 +91,15 @@ impl SessionTrackingState {
 
     /// End the current session
     pub async fn end_session(&self) -> Result<(), String> {
-        let session = self.active_session.get()
+        let session = self
+            .active_session
+            .get()
             .ok_or_else(|| "No active session".to_string())?;
 
-        log(&format!("[SessionState] Ending session: {:?}", session.session_record_id));
+        log(&format!(
+            "[SessionState] Ending session: {:?}",
+            session.session_record_id
+        ));
 
         let elapsed = session.elapsed_seconds(now_ms()).unwrap_or(0);
 
@@ -98,7 +108,8 @@ impl SessionTrackingState {
             "sessionRecordId": session.session_record_id,
             "leadRecordId": session.lead_record_id,
             "actualDurationSeconds": elapsed
-        })).map_err(|e| format!("Args error: {}", e))?;
+        }))
+        .map_err(|e| format!("Args error: {}", e))?;
 
         let _ = JsFuture::from(invoke("api_complete_session", args)).await;
 
@@ -107,12 +118,13 @@ impl SessionTrackingState {
         completed.ended_at = Some(now_ms());
         completed.state = SessionState::Completed;
 
-        let history_json = serde_json::to_value(&completed)
-            .map_err(|e| format!("Serialize error: {}", e))?;
+        let history_json =
+            serde_json::to_value(&completed).map_err(|e| format!("Serialize error: {}", e))?;
 
         let history_args = serde_wasm_bindgen::to_value(&serde_json::json!({
             "session": history_json
-        })).map_err(|e| format!("Args error: {}", e))?;
+        }))
+        .map_err(|e| format!("Args error: {}", e))?;
 
         let _ = JsFuture::from(invoke("store_session_history", history_args)).await;
 
@@ -141,7 +153,10 @@ impl SessionTrackingState {
                 if !result.is_null() && !result.is_undefined() {
                     match serde_wasm_bindgen::from_value::<TrackedSession>(result) {
                         Ok(session) => {
-                            log(&format!("[SessionState] Restored session: {:?}", session.session_record_id));
+                            log(&format!(
+                                "[SessionState] Restored session: {:?}",
+                                session.session_record_id
+                            ));
                             self.active_session.set(Some(session));
                         }
                         Err(e) => {

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize)]
 pub struct LoginRequest {
     pub email_address: String,
-    pub password: String,  // SHA-256 hashed
+    pub password: String, // SHA-256 hashed
     pub device_id: String,
 }
 
@@ -46,7 +46,7 @@ pub struct LoginResponse {
     pub two_factor: Option<String>,
     pub error: Option<String>,
     pub status: Option<String>,
-    pub data: Option<UserProfile>,  // Present after successful OTP verification
+    pub data: Option<UserProfile>, // Present after successful OTP verification
 }
 
 /// User profile data returned after successful login

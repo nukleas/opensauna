@@ -1,9 +1,9 @@
+use crate::components::{Button, IconChevronLeft, LoadingOverlay, OtpInput};
+use crate::state::use_auth_state;
 use leptos::prelude::*;
 use leptos::web_sys;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use crate::components::{Button, OtpInput, LoadingOverlay, IconChevronLeft};
-use crate::state::use_auth_state;
 
 #[wasm_bindgen]
 extern "C" {
@@ -80,7 +80,8 @@ pub fn OtpPage() -> impl IntoView {
                 "password": password,
                 "otp": otp_val,
                 "token": token
-            })).unwrap();
+            }))
+            .unwrap();
 
             let promise = invoke("api_verify_otp", args);
             match JsFuture::from(promise).await {
@@ -100,13 +101,18 @@ pub fn OtpPage() -> impl IntoView {
 
                     if let Some(token) = response.token {
                         // Clear pending login from store
-                        let clear_args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+                        let clear_args =
+                            serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
                         let _ = JsFuture::from(invoke("clear_pending_login", clear_args)).await;
                         // Store auth token
                         auth.set_token(token).await;
                         navigate_to("/");
                     } else {
-                        error.set(Some(response.error.unwrap_or_else(|| "Verification failed".to_string())));
+                        error.set(Some(
+                            response
+                                .error
+                                .unwrap_or_else(|| "Verification failed".to_string()),
+                        ));
                     }
                 }
                 Err(e) => {

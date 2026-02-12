@@ -1,10 +1,10 @@
+use crate::components::{BottomNav, Button, IconChevronLeft, NavItem, PageLoading};
+use crate::models::booking::{SessionType, TimeSlot};
 use leptos::prelude::*;
 use leptos::web_sys;
 use leptos_router::hooks::use_params_map;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use crate::components::{BottomNav, NavItem, PageLoading, Button, IconChevronLeft};
-use crate::models::booking::{TimeSlot, SessionType};
 
 #[wasm_bindgen]
 extern "C" {
@@ -58,22 +58,33 @@ pub fn BookingPage() -> impl IntoView {
         error.set(None);
 
         wasm_bindgen_futures::spawn_local(async move {
-            log(&format!("[Booking] Fetching session types for {} on {}", loc_id, date));
+            log(&format!(
+                "[Booking] Fetching session types for {} on {}",
+                loc_id, date
+            ));
 
             let args = serde_wasm_bindgen::to_value(&serde_json::json!({
                 "locationId": loc_id,
                 "selectedDate": date
-            })).unwrap();
+            }))
+            .unwrap();
 
             let promise = invoke("api_get_session_types", args);
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
-                        log(&format!("[Booking] Got session types response: {:?}", response));
+                    if let Ok(response) =
+                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                    {
+                        log(&format!(
+                            "[Booking] Got session types response: {:?}",
+                            response
+                        ));
                         // API returns { list: [{slot: "HOT YOGA", value: "HOT YOGA"}, ...] }
                         if let Some(types_json) = response.get("list") {
-                            if let Ok(types) = serde_json::from_value::<Vec<SessionType>>(types_json.clone()) {
+                            if let Ok(types) =
+                                serde_json::from_value::<Vec<SessionType>>(types_json.clone())
+                            {
                                 log(&format!("[Booking] Parsed {} session types", types.len()));
                                 session_types.set(types);
                             }
@@ -117,33 +128,49 @@ pub fn BookingPage() -> impl IntoView {
         error.set(None);
 
         wasm_bindgen_futures::spawn_local(async move {
-            log(&format!("[Booking] Fetching slots for {} - {} on {}", loc_id, session_type_name, date));
+            log(&format!(
+                "[Booking] Fetching slots for {} - {} on {}",
+                loc_id, session_type_name, date
+            ));
 
             let args = serde_wasm_bindgen::to_value(&serde_json::json!({
                 "bookingDate": date,
                 "locationId": loc_id,
                 "sessionType": session_type_name
-            })).unwrap();
+            }))
+            .unwrap();
 
             let promise = invoke("api_show_slots", args);
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
+                    if let Ok(response) =
+                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                    {
                         log(&format!("[Booking] Got slots response: {:?}", response));
 
                         // API returns slots directly as an array
                         if response.is_array() {
-                            if let Ok(slots) = serde_json::from_value::<Vec<TimeSlot>>(response.clone()) {
-                                log(&format!("[Booking] Parsed {} slots from array", slots.len()));
+                            if let Ok(slots) =
+                                serde_json::from_value::<Vec<TimeSlot>>(response.clone())
+                            {
+                                log(&format!(
+                                    "[Booking] Parsed {} slots from array",
+                                    slots.len()
+                                ));
                                 time_slots.set(slots);
                             }
                         }
                         // Or nested under data.slots
                         else if let Some(data) = response.get("data") {
                             if let Some(slots_json) = data.get("slots") {
-                                if let Ok(slots) = serde_json::from_value::<Vec<TimeSlot>>(slots_json.clone()) {
-                                    log(&format!("[Booking] Parsed {} slots from data.slots", slots.len()));
+                                if let Ok(slots) =
+                                    serde_json::from_value::<Vec<TimeSlot>>(slots_json.clone())
+                                {
+                                    log(&format!(
+                                        "[Booking] Parsed {} slots from data.slots",
+                                        slots.len()
+                                    ));
                                     time_slots.set(slots);
                                 }
                             }
@@ -161,7 +188,7 @@ pub fn BookingPage() -> impl IntoView {
                         if let Some(start) = err_str.find("\"error\":\"") {
                             let start = start + 9;
                             if let Some(end) = err_str[start..].find("\"") {
-                                err_str[start..start+end].to_string()
+                                err_str[start..start + end].to_string()
                             } else {
                                 err_str.clone()
                             }
@@ -201,9 +228,19 @@ pub fn BookingPage() -> impl IntoView {
             for (idx, slot) in slots.into_iter().enumerate() {
                 let sauna_no = slot.sauna_no.clone().unwrap_or_default();
                 let time_slot = slot.time_slot.clone().unwrap_or_default();
-                let session_type = slot.session_name.clone().unwrap_or_else(|| "Hot Yoga".to_string());
+                let session_type = slot
+                    .session_name
+                    .clone()
+                    .unwrap_or_else(|| "Hot Yoga".to_string());
 
-                log(&format!("[Booking] Booking {}/{}: {} at {} on {}", idx + 1, total, session_type, time_slot, date));
+                log(&format!(
+                    "[Booking] Booking {}/{}: {} at {} on {}",
+                    idx + 1,
+                    total,
+                    session_type,
+                    time_slot,
+                    date
+                ));
 
                 let args = serde_wasm_bindgen::to_value(&serde_json::json!({
                     "saunaNo": sauna_no,
@@ -211,16 +248,22 @@ pub fn BookingPage() -> impl IntoView {
                     "bookingDate": date,
                     "sessionType": session_type,
                     "locationId": loc_id
-                })).unwrap();
+                }))
+                .unwrap();
 
                 let promise = invoke("api_book_session", args);
 
                 match JsFuture::from(promise).await {
                     Ok(result) => {
-                        if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
+                        if let Ok(response) =
+                            serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                        {
                             log(&format!("[Booking] Book response: {:?}", response));
-                            if response.get("error").is_some() && !response.get("error").unwrap().is_null() {
-                                let err = response.get("error")
+                            if response.get("error").is_some()
+                                && !response.get("error").unwrap().is_null()
+                            {
+                                let err = response
+                                    .get("error")
                                     .and_then(|e| e.as_str())
                                     .unwrap_or("Unknown error");
                                 failed.push(format!("{}: {}", time_slot, err));

@@ -49,6 +49,9 @@ pub struct LocationsData {
 
 impl Location {
     pub fn is_allowed(&self) -> bool {
-        matches!(self.is_allow.as_deref(), Some("1") | Some("true") | Some("yes"))
+        matches!(
+            self.is_allow.as_deref(),
+            Some("1") | Some("true") | Some("yes")
+        )
     }
 }

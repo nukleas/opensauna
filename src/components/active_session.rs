@@ -1,9 +1,9 @@
-use leptos::prelude::*;
-use wasm_bindgen::prelude::*;
-use crate::components::{SessionTimer, IconFlame, IconMapPin, IconClock};
 use crate::components::icons::IconSize;
+use crate::components::{IconClock, IconFlame, IconMapPin, SessionTimer};
 use crate::models::session_tracking::TrackedSession;
 use crate::state::use_session_tracking_state;
+use leptos::prelude::*;
+use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 extern "C" {

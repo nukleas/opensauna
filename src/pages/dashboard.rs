@@ -1,10 +1,13 @@
+use crate::components::{
+    ActiveSessionView, BottomNav, Button, EmptySessionList, IconLogOut, NavItem, PageLoading,
+    SessionCard,
+};
+use crate::models::dashboard::{DashboardData, PendingSession};
+use crate::state::{use_auth_state, use_session_tracking_state};
 use leptos::prelude::*;
 use leptos::web_sys;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use crate::components::{BottomNav, NavItem, SessionCard, EmptySessionList, PageLoading, Button, IconLogOut, ActiveSessionView};
-use crate::state::{use_auth_state, use_session_tracking_state};
-use crate::models::dashboard::{DashboardData, PendingSession};
 
 #[wasm_bindgen]
 extern "C" {
@@ -51,7 +54,10 @@ pub fn DashboardPage() -> impl IntoView {
     // Handle start session signal
     Effect::new(move |_| {
         if let Some(pending) = start_session.get() {
-            log(&format!("[Dashboard] Starting session: {:?}", pending.session_record_id));
+            log(&format!(
+                "[Dashboard] Starting session: {:?}",
+                pending.session_record_id
+            ));
             set_start_session.set(None);
 
             wasm_bindgen_futures::spawn_local(async move {
@@ -66,7 +72,10 @@ pub fn DashboardPage() -> impl IntoView {
     // Remove cancelled session from dashboard data when signal changes
     Effect::new(move |_| {
         if let Some(session_id) = cancelled_session.get() {
-            log(&format!("[Dashboard] Removing cancelled session: {}", session_id));
+            log(&format!(
+                "[Dashboard] Removing cancelled session: {}",
+                session_id
+            ));
             dashboard_data.update(|data| {
                 if let Some(ref mut d) = data {
                     if let Some(ref mut sessions) = d.todays_pending_sessions {
@@ -96,13 +105,21 @@ pub fn DashboardPage() -> impl IntoView {
                             if let Some(data) = response.get("data") {
                                 match serde_json::from_value::<DashboardData>(data.clone()) {
                                     Ok(dashboard) => {
-                                        log(&format!("[Dashboard] Parsed: sessions={:?}, summary={:?}",
-                                            dashboard.todays_pending_sessions.as_ref().map(|s| s.len()),
-                                            dashboard.summary));
+                                        log(&format!(
+                                            "[Dashboard] Parsed: sessions={:?}, summary={:?}",
+                                            dashboard
+                                                .todays_pending_sessions
+                                                .as_ref()
+                                                .map(|s| s.len()),
+                                            dashboard.summary
+                                        ));
                                         dashboard_data.set(Some(dashboard));
                                     }
                                     Err(e) => {
-                                        log(&format!("[Dashboard] Parse DashboardData error: {}", e));
+                                        log(&format!(
+                                            "[Dashboard] Parse DashboardData error: {}",
+                                            e
+                                        ));
                                         error.set(Some(format!("Parse error: {}", e)));
                                     }
                                 }
@@ -140,12 +157,19 @@ pub fn DashboardPage() -> impl IntoView {
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
+                    if let Ok(response) =
+                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                    {
                         // Try to parse upcoming sessions from response
                         if let Some(data) = response.get("data") {
                             if let Some(upcoming) = data.get("upcoming") {
-                                if let Ok(sessions) = serde_json::from_value::<Vec<PendingSession>>(upcoming.clone()) {
-                                    log(&format!("[Dashboard] Got {} upcoming sessions", sessions.len()));
+                                if let Ok(sessions) =
+                                    serde_json::from_value::<Vec<PendingSession>>(upcoming.clone())
+                                {
+                                    log(&format!(
+                                        "[Dashboard] Got {} upcoming sessions",
+                                        sessions.len()
+                                    ));
                                     all_upcoming_sessions.set(sessions);
                                 }
                             }
@@ -153,7 +177,10 @@ pub fn DashboardPage() -> impl IntoView {
                     }
                 }
                 Err(e) => {
-                    log(&format!("[Dashboard] Upcoming sessions error (non-fatal): {:?}", e));
+                    log(&format!(
+                        "[Dashboard] Upcoming sessions error (non-fatal): {:?}",
+                        e
+                    ));
                 }
             }
         });
@@ -169,22 +196,18 @@ pub fn DashboardPage() -> impl IntoView {
             let type_promise = invoke("get_preferred_session_type", args);
 
             let has_location = match JsFuture::from(loc_promise).await {
-                Ok(result) => {
-                    serde_wasm_bindgen::from_value::<Option<(String, String)>>(result)
-                        .ok()
-                        .flatten()
-                        .is_some()
-                }
+                Ok(result) => serde_wasm_bindgen::from_value::<Option<(String, String)>>(result)
+                    .ok()
+                    .flatten()
+                    .is_some(),
                 Err(_) => false,
             };
 
             let session_type_display = match JsFuture::from(type_promise).await {
-                Ok(result) => {
-                    serde_wasm_bindgen::from_value::<Option<(String, String)>>(result)
-                        .ok()
-                        .flatten()
-                        .map(|(_, display)| display)
-                }
+                Ok(result) => serde_wasm_bindgen::from_value::<Option<(String, String)>>(result)
+                    .ok()
+                    .flatten()
+                    .map(|(_, display)| display),
                 Err(_) => None,
             };
 

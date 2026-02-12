@@ -1,8 +1,8 @@
+use crate::components::{BottomNav, EmptySessionList, NavItem, PageLoading, SessionCard};
+use crate::models::dashboard::PendingSession;
 use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use crate::components::{BottomNav, NavItem, SessionCard, EmptySessionList, PageLoading};
-use crate::models::dashboard::PendingSession;
 
 #[wasm_bindgen]
 extern "C" {
@@ -28,7 +28,10 @@ pub fn SessionsPage() -> impl IntoView {
     // Remove cancelled session from list when signal changes
     Effect::new(move |_| {
         if let Some(session_id) = cancelled_session.get() {
-            log(&format!("[Sessions] Removing cancelled session: {}", session_id));
+            log(&format!(
+                "[Sessions] Removing cancelled session: {}",
+                session_id
+            ));
             pending_sessions.update(|sessions| {
                 sessions.retain(|s| s.session_record_id.as_deref() != Some(&session_id));
             });
@@ -51,12 +54,19 @@ pub fn SessionsPage() -> impl IntoView {
             // Process dashboard response
             match JsFuture::from(dashboard_promise).await {
                 Ok(result) => {
-                    if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
+                    if let Ok(response) =
+                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                    {
                         log("[Sessions] Got dashboard response");
                         if let Some(data) = response.get("data") {
                             if let Some(completed_json) = data.get("todays_completed_sessions") {
-                                if let Ok(completed) = serde_json::from_value::<Vec<PendingSession>>(completed_json.clone()) {
-                                    log(&format!("[Sessions] {} completed sessions today", completed.len()));
+                                if let Ok(completed) = serde_json::from_value::<Vec<PendingSession>>(
+                                    completed_json.clone(),
+                                ) {
+                                    log(&format!(
+                                        "[Sessions] {} completed sessions today",
+                                        completed.len()
+                                    ));
                                     completed_sessions.set(completed);
                                 }
                             }
@@ -71,23 +81,41 @@ pub fn SessionsPage() -> impl IntoView {
             // Process upcoming sessions
             match JsFuture::from(upcoming_promise).await {
                 Ok(result) => {
-                    if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
+                    if let Ok(response) =
+                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                    {
                         if let Some(data) = response.get("data") {
                             if let Some(upcoming_json) = data.get("upcoming") {
-                                if let Ok(upcoming) = serde_json::from_value::<Vec<PendingSession>>(upcoming_json.clone()) {
-                                    log(&format!("[Sessions] {} upcoming sessions", upcoming.len()));
+                                if let Ok(upcoming) = serde_json::from_value::<Vec<PendingSession>>(
+                                    upcoming_json.clone(),
+                                ) {
+                                    log(&format!(
+                                        "[Sessions] {} upcoming sessions",
+                                        upcoming.len()
+                                    ));
                                     pending_sessions.set(upcoming);
                                 }
                             }
                         }
                         // Fallback: if no upcoming in response, check for today's pending from earlier
                         if pending_sessions.get().is_empty() {
-                            let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
-                            if let Ok(result) = JsFuture::from(invoke("api_get_dashboard", args)).await {
-                                if let Ok(resp) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
+                            let args =
+                                serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+                            if let Ok(result) =
+                                JsFuture::from(invoke("api_get_dashboard", args)).await
+                            {
+                                if let Ok(resp) =
+                                    serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                                {
                                     if let Some(data) = resp.get("data") {
-                                        if let Some(pending_json) = data.get("todays_pending_sessions") {
-                                            if let Ok(pending) = serde_json::from_value::<Vec<PendingSession>>(pending_json.clone()) {
+                                        if let Some(pending_json) =
+                                            data.get("todays_pending_sessions")
+                                        {
+                                            if let Ok(pending) =
+                                                serde_json::from_value::<Vec<PendingSession>>(
+                                                    pending_json.clone(),
+                                                )
+                                            {
                                                 pending_sessions.set(pending);
                                             }
                                         }
@@ -120,23 +148,35 @@ pub fn SessionsPage() -> impl IntoView {
                 "pageNo": 1,
                 "pageLimit": 100,
                 "sessionType": "all"
-            })).unwrap();
+            }))
+            .unwrap();
             let promise = invoke("api_get_activity_history", args);
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    if let Ok(response) = serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
-                        log(&format!("[Sessions] Activity history response: {:?}", response));
+                    if let Ok(response) =
+                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                    {
+                        log(&format!(
+                            "[Sessions] Activity history response: {:?}",
+                            response
+                        ));
 
                         // The API returns data in a specific structure, extract the activities
                         if let Some(data) = response.get("data") {
                             if let Some(activities) = data.as_array() {
-                                log(&format!("[Sessions] {} activity entries from API", activities.len()));
+                                log(&format!(
+                                    "[Sessions] {} activity entries from API",
+                                    activities.len()
+                                ));
                                 session_history.set(activities.clone());
                             }
                         } else if let Some(activities) = response.as_array() {
                             // Maybe it's a direct array
-                            log(&format!("[Sessions] {} activity entries (direct array)", activities.len()));
+                            log(&format!(
+                                "[Sessions] {} activity entries (direct array)",
+                                activities.len()
+                            ));
                             session_history.set(activities.clone());
                         }
                     }
@@ -147,8 +187,13 @@ pub fn SessionsPage() -> impl IntoView {
                     let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
                     let promise = invoke("get_session_history", args);
                     if let Ok(result) = JsFuture::from(promise).await {
-                        if let Ok(history) = serde_wasm_bindgen::from_value::<Vec<serde_json::Value>>(result) {
-                            log(&format!("[Sessions] Fallback: {} local history entries", history.len()));
+                        if let Ok(history) =
+                            serde_wasm_bindgen::from_value::<Vec<serde_json::Value>>(result)
+                        {
+                            log(&format!(
+                                "[Sessions] Fallback: {} local history entries",
+                                history.len()
+                            ));
                             session_history.set(history);
                         }
                     }

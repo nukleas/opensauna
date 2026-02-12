@@ -1,9 +1,9 @@
+use crate::components::{Button, IconFlame, LoadingOverlay, TextInput};
+use crate::state::use_auth_state;
 use leptos::prelude::*;
 use leptos::web_sys;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use crate::components::{Button, TextInput, LoadingOverlay, IconFlame};
-use crate::state::use_auth_state;
 
 #[wasm_bindgen]
 extern "C" {
@@ -71,7 +71,8 @@ pub fn LoginPage() -> impl IntoView {
             let args = serde_wasm_bindgen::to_value(&serde_json::json!({
                 "email": email_val.clone(),
                 "password": password_val.clone()
-            })).unwrap();
+            }))
+            .unwrap();
 
             let promise = invoke("api_login_with_password", args);
             match JsFuture::from(promise).await {
@@ -96,7 +97,8 @@ pub fn LoginPage() -> impl IntoView {
                                 "email": email_val,
                                 "password": password_val,
                                 "token": token
-                            })).unwrap();
+                            }))
+                            .unwrap();
                             let _ = JsFuture::from(invoke("store_pending_login", store_args)).await;
                             navigate_to("/otp");
                         }
@@ -104,7 +106,9 @@ pub fn LoginPage() -> impl IntoView {
                         auth.set_token(token).await;
                         navigate_to("/");
                     } else {
-                        error.set(Some(response.error.unwrap_or_else(|| "Login failed".to_string())));
+                        error.set(Some(
+                            response.error.unwrap_or_else(|| "Login failed".to_string()),
+                        ));
                     }
                 }
                 Err(e) => {

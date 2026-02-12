@@ -1,6 +1,6 @@
+use crate::components::icons::{IconCalendar, IconCalendarPlus, IconHome};
 use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
-use crate::components::icons::{IconHome, IconCalendarPlus, IconCalendar};
 
 #[derive(Clone, PartialEq)]
 pub enum NavItem {
@@ -10,9 +10,7 @@ pub enum NavItem {
 }
 
 #[component]
-pub fn BottomNav(
-    #[prop(into)] active: Signal<NavItem>,
-) -> impl IntoView {
+pub fn BottomNav(#[prop(into)] active: Signal<NavItem>) -> impl IntoView {
     let navigate = use_navigate();
 
     let nav_item_class = move |item: NavItem| {

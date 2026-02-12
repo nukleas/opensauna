@@ -89,7 +89,12 @@ impl ApiClient {
         self.fetch_request::<(), R>("GET", &url, None).await
     }
 
-    async fn fetch_request<T, R>(&self, method: &str, url: &str, body: Option<&T>) -> Result<R, ApiError>
+    async fn fetch_request<T, R>(
+        &self,
+        method: &str,
+        url: &str,
+        body: Option<&T>,
+    ) -> Result<R, ApiError>
     where
         T: Serialize,
         R: DeserializeOwned,
@@ -107,7 +112,13 @@ impl ApiClient {
         self.fetch_internal("POST", &url, Some(body), true).await
     }
 
-    async fn fetch_internal<T, R>(&self, method: &str, url: &str, body: Option<&T>, form_encoded: bool) -> Result<R, ApiError>
+    async fn fetch_internal<T, R>(
+        &self,
+        method: &str,
+        url: &str,
+        body: Option<&T>,
+        form_encoded: bool,
+    ) -> Result<R, ApiError>
     where
         T: Serialize,
         R: DeserializeOwned,
@@ -115,12 +126,18 @@ impl ApiClient {
         log(&format!("[API] {} {}", method, url));
 
         // Get device ID for headers
-        let device_id = get_device_id().await.unwrap_or_else(|_| format!("tauri-{}", js_sys::Date::now() as u64));
+        let device_id = get_device_id()
+            .await
+            .unwrap_or_else(|_| format!("tauri-{}", js_sys::Date::now() as u64));
 
         // Build headers as a simple string map - matching the Android app
-        let mut headers_map: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        let mut headers_map: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
         if form_encoded {
-            headers_map.insert("Content-Type".to_string(), "application/x-www-form-urlencoded".to_string());
+            headers_map.insert(
+                "Content-Type".to_string(),
+                "application/x-www-form-urlencoded".to_string(),
+            );
         } else {
             headers_map.insert("Content-Type".to_string(), "application/json".to_string());
         }
@@ -138,13 +155,17 @@ impl ApiClient {
         // Build request options for Tauri HTTP plugin
         let mut options = serde_json::Map::new();
         options.insert("method".to_string(), serde_json::json!(method));
-        options.insert("headers".to_string(), serde_json::to_value(&headers_map).unwrap());
+        options.insert(
+            "headers".to_string(),
+            serde_json::to_value(&headers_map).unwrap(),
+        );
 
         if let Some(b) = body {
             if form_encoded {
                 // Convert to form-urlencoded
-                let body_value = serde_json::to_value(b)
-                    .map_err(|e| ApiError { message: format!("Failed to serialize body: {}", e) })?;
+                let body_value = serde_json::to_value(b).map_err(|e| ApiError {
+                    message: format!("Failed to serialize body: {}", e),
+                })?;
 
                 let form_body = if let serde_json::Value::Object(map) = body_value {
                     map.iter()
@@ -158,14 +179,17 @@ impl ApiClient {
                         .collect::<Vec<_>>()
                         .join("&")
                 } else {
-                    return Err(ApiError { message: "Body must be an object for form encoding".to_string() });
+                    return Err(ApiError {
+                        message: "Body must be an object for form encoding".to_string(),
+                    });
                 };
 
                 log(&format!("[API] Form body: {}", form_body));
                 options.insert("body".to_string(), serde_json::json!(form_body));
             } else {
-                let body_json = serde_json::to_string(b)
-                    .map_err(|e| ApiError { message: format!("Failed to serialize body: {}", e) })?;
+                let body_json = serde_json::to_string(b).map_err(|e| ApiError {
+                    message: format!("Failed to serialize body: {}", e),
+                })?;
                 log(&format!("[API] Request body: {}", body_json));
                 options.insert("body".to_string(), serde_json::json!(body_json));
             }
@@ -173,23 +197,26 @@ impl ApiClient {
 
         // Convert options to JsValue
         let options_js = serde_wasm_bindgen::to_value(&serde_json::Value::Object(options))
-            .map_err(|e| ApiError { message: format!("Failed to convert options: {:?}", e) })?;
+            .map_err(|e| ApiError {
+                message: format!("Failed to convert options: {:?}", e),
+            })?;
 
         // Call Tauri's HTTP fetch
         let promise = fetch(url, options_js);
-        let result = JsFuture::from(promise)
-            .await
-            .map_err(|e| {
-                error(&format!("[API] HTTP request failed: {:?}", e));
-                ApiError { message: format!("HTTP request failed: {:?}", e) }
-            })?;
+        let result = JsFuture::from(promise).await.map_err(|e| {
+            error(&format!("[API] HTTP request failed: {:?}", e));
+            ApiError {
+                message: format!("HTTP request failed: {:?}", e),
+            }
+        })?;
 
         log("[API] Got response, extracting body...");
 
         // The result is a Response object, we need to get the JSON body
         // First, call .text() to see raw response for debugging
-        let response: js_sys::Object = result.dyn_into()
-            .map_err(|_| ApiError { message: "Response is not an object".to_string() })?;
+        let response: js_sys::Object = result.dyn_into().map_err(|_| ApiError {
+            message: "Response is not an object".to_string(),
+        })?;
 
         // Log response status
         if let Ok(status) = js_sys::Reflect::get(&response, &JsValue::from_str("status")) {
@@ -197,28 +224,43 @@ impl ApiClient {
         }
 
         // Get text first for debugging
-        let text_fn = js_sys::Reflect::get(&response, &JsValue::from_str("text"))
-            .map_err(|e| ApiError { message: format!("Failed to get text method: {:?}", e) })?;
+        let text_fn =
+            js_sys::Reflect::get(&response, &JsValue::from_str("text")).map_err(|e| ApiError {
+                message: format!("Failed to get text method: {:?}", e),
+            })?;
 
-        let text_fn: js_sys::Function = text_fn.dyn_into()
-            .map_err(|_| ApiError { message: "text is not a function".to_string() })?;
+        let text_fn: js_sys::Function = text_fn.dyn_into().map_err(|_| ApiError {
+            message: "text is not a function".to_string(),
+        })?;
 
-        let text_promise = text_fn.call0(&response)
-            .map_err(|e| ApiError { message: format!("Failed to call text(): {:?}", e) })?;
+        let text_promise = text_fn.call0(&response).map_err(|e| ApiError {
+            message: format!("Failed to call text(): {:?}", e),
+        })?;
 
-        let text_promise: js_sys::Promise = text_promise.dyn_into()
-            .map_err(|_| ApiError { message: "text() did not return a promise".to_string() })?;
+        let text_promise: js_sys::Promise = text_promise.dyn_into().map_err(|_| ApiError {
+            message: "text() did not return a promise".to_string(),
+        })?;
 
-        let text_result = JsFuture::from(text_promise)
-            .await
-            .map_err(|e| ApiError { message: format!("Failed to get text: {:?}", e) })?;
+        let text_result = JsFuture::from(text_promise).await.map_err(|e| ApiError {
+            message: format!("Failed to get text: {:?}", e),
+        })?;
 
-        let text_str = text_result.as_string().unwrap_or_else(|| "No text".to_string());
-        log(&format!("[API] Response body: {}", &text_str[..text_str.len().min(500)]));
+        let text_str = text_result
+            .as_string()
+            .unwrap_or_else(|| "No text".to_string());
+        log(&format!(
+            "[API] Response body: {}",
+            &text_str[..text_str.len().min(500)]
+        ));
 
         // Parse the text as JSON
-        let parsed: R = serde_json::from_str(&text_str)
-            .map_err(|e| ApiError { message: format!("Failed to parse JSON: {} - Body: {}", e, &text_str[..text_str.len().min(200)]) })?;
+        let parsed: R = serde_json::from_str(&text_str).map_err(|e| ApiError {
+            message: format!(
+                "Failed to parse JSON: {} - Body: {}",
+                e,
+                &text_str[..text_str.len().min(200)]
+            ),
+        })?;
 
         Ok(parsed)
     }
@@ -235,29 +277,34 @@ pub async fn hash_password(password: &str) -> Result<String, ApiError> {
     let args = serde_wasm_bindgen::to_value(&serde_json::json!({
         "password": password
     }))
-    .map_err(|e| ApiError { message: format!("Failed to convert args: {:?}", e) })?;
+    .map_err(|e| ApiError {
+        message: format!("Failed to convert args: {:?}", e),
+    })?;
 
     let promise = invoke("hash_password", args);
-    let result = JsFuture::from(promise)
-        .await
-        .map_err(|e| ApiError { message: format!("Hash failed: {:?}", e) })?;
+    let result = JsFuture::from(promise).await.map_err(|e| ApiError {
+        message: format!("Hash failed: {:?}", e),
+    })?;
 
-    serde_wasm_bindgen::from_value(result)
-        .map_err(|e| ApiError { message: format!("Failed to parse hash: {:?}", e) })
+    serde_wasm_bindgen::from_value(result).map_err(|e| ApiError {
+        message: format!("Failed to parse hash: {:?}", e),
+    })
 }
 
 /// Get device ID via Tauri command
 pub async fn get_device_id() -> Result<String, ApiError> {
-    let args = serde_wasm_bindgen::to_value(&serde_json::json!({}))
-        .map_err(|e| ApiError { message: format!("Failed to convert args: {:?}", e) })?;
+    let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).map_err(|e| ApiError {
+        message: format!("Failed to convert args: {:?}", e),
+    })?;
 
     let promise = invoke("get_device_id", args);
-    let result = JsFuture::from(promise)
-        .await
-        .map_err(|e| ApiError { message: format!("Get device ID failed: {:?}", e) })?;
+    let result = JsFuture::from(promise).await.map_err(|e| ApiError {
+        message: format!("Get device ID failed: {:?}", e),
+    })?;
 
-    serde_wasm_bindgen::from_value(result)
-        .map_err(|e| ApiError { message: format!("Failed to parse device ID: {:?}", e) })
+    serde_wasm_bindgen::from_value(result).map_err(|e| ApiError {
+        message: format!("Failed to parse device ID: {:?}", e),
+    })
 }
 
 /// Store auth token via Tauri command
@@ -265,39 +312,44 @@ pub async fn store_auth_token(token: &str) -> Result<(), ApiError> {
     let args = serde_wasm_bindgen::to_value(&serde_json::json!({
         "token": token
     }))
-    .map_err(|e| ApiError { message: format!("Failed to convert args: {:?}", e) })?;
+    .map_err(|e| ApiError {
+        message: format!("Failed to convert args: {:?}", e),
+    })?;
 
     let promise = invoke("store_auth_token", args);
-    JsFuture::from(promise)
-        .await
-        .map_err(|e| ApiError { message: format!("Store token failed: {:?}", e) })?;
+    JsFuture::from(promise).await.map_err(|e| ApiError {
+        message: format!("Store token failed: {:?}", e),
+    })?;
 
     Ok(())
 }
 
 /// Get stored auth token via Tauri command
 pub async fn get_auth_token() -> Result<Option<String>, ApiError> {
-    let args = serde_wasm_bindgen::to_value(&serde_json::json!({}))
-        .map_err(|e| ApiError { message: format!("Failed to convert args: {:?}", e) })?;
+    let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).map_err(|e| ApiError {
+        message: format!("Failed to convert args: {:?}", e),
+    })?;
 
     let promise = invoke("get_auth_token", args);
-    let result = JsFuture::from(promise)
-        .await
-        .map_err(|e| ApiError { message: format!("Get token failed: {:?}", e) })?;
+    let result = JsFuture::from(promise).await.map_err(|e| ApiError {
+        message: format!("Get token failed: {:?}", e),
+    })?;
 
-    serde_wasm_bindgen::from_value(result)
-        .map_err(|e| ApiError { message: format!("Failed to parse token: {:?}", e) })
+    serde_wasm_bindgen::from_value(result).map_err(|e| ApiError {
+        message: format!("Failed to parse token: {:?}", e),
+    })
 }
 
 /// Clear auth token via Tauri command
 pub async fn clear_auth_token() -> Result<(), ApiError> {
-    let args = serde_wasm_bindgen::to_value(&serde_json::json!({}))
-        .map_err(|e| ApiError { message: format!("Failed to convert args: {:?}", e) })?;
+    let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).map_err(|e| ApiError {
+        message: format!("Failed to convert args: {:?}", e),
+    })?;
 
     let promise = invoke("clear_auth_token", args);
-    JsFuture::from(promise)
-        .await
-        .map_err(|e| ApiError { message: format!("Clear token failed: {:?}", e) })?;
+    JsFuture::from(promise).await.map_err(|e| ApiError {
+        message: format!("Clear token failed: {:?}", e),
+    })?;
 
     Ok(())
 }

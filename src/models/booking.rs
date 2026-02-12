@@ -18,7 +18,7 @@ pub struct TimeSlot {
     pub slot1: Option<String>,
     pub slot2: Option<String>,
     pub slot3: Option<String>,
-    #[serde(alias = "suana_no")]  // API has typo "suana_no" instead of "sauna_no"
+    #[serde(alias = "suana_no")] // API has typo "suana_no" instead of "sauna_no"
     pub sauna_no: Option<String>,
     pub time_slot: Option<String>,
     pub is_available: Option<bool>,

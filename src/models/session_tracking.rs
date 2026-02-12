@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use super::dashboard::PendingSession;
+use serde::{Deserialize, Serialize};
 
 /// Session tracking state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -51,7 +51,9 @@ impl TrackedSession {
             lead_record_id: session.lead_record_id.clone()?,
             session_name: session.session_name.clone().unwrap_or_default(),
             location_name: session.location_name.clone().unwrap_or_default(),
-            duration_minutes: session.duration.as_ref()
+            duration_minutes: session
+                .duration
+                .as_ref()
                 .and_then(|d| d.parse().ok())
                 .unwrap_or(30),
             started_at: None,
@@ -65,9 +67,8 @@ impl TrackedSession {
 
     /// Calculate elapsed time in seconds since session started
     pub fn elapsed_seconds(&self, now_ms: i64) -> Option<i64> {
-        self.started_at.map(|start| {
-            ((now_ms - start) / 1000).max(0)
-        })
+        self.started_at
+            .map(|start| ((now_ms - start) / 1000).max(0))
     }
 
     /// Calculate remaining time in seconds (based on planned duration)

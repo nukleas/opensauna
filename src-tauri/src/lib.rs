@@ -1,12 +1,12 @@
-use sha2::{Sha256, Digest};
-use tauri_plugin_store::StoreExt;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use aes_gcm::{
     aead::{Aead, KeyInit, OsRng},
     Aes256Gcm, Nonce,
 };
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::HashMap;
+use tauri_plugin_store::StoreExt;
 
 const BASE_URL: &str = "https://sailposapi.hotworx.net/api/v1";
 
@@ -24,8 +24,7 @@ fn derive_key(device_id: &str) -> [u8; 32] {
 /// Encrypt a string value
 fn encrypt_value(value: &str, device_id: &str) -> Result<String, String> {
     let key = derive_key(device_id);
-    let cipher = Aes256Gcm::new_from_slice(&key)
-        .map_err(|e| format!("Cipher error: {}", e))?;
+    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|e| format!("Cipher error: {}", e))?;
 
     // Generate random nonce
     let nonce_bytes: [u8; 12] = {
@@ -36,7 +35,8 @@ fn encrypt_value(value: &str, device_id: &str) -> Result<String, String> {
     };
     let nonce = Nonce::from_slice(&nonce_bytes);
 
-    let ciphertext = cipher.encrypt(nonce, value.as_bytes())
+    let ciphertext = cipher
+        .encrypt(nonce, value.as_bytes())
         .map_err(|e| format!("Encrypt error: {}", e))?;
 
     // Prepend nonce to ciphertext and base64 encode
@@ -48,10 +48,10 @@ fn encrypt_value(value: &str, device_id: &str) -> Result<String, String> {
 /// Decrypt a string value
 fn decrypt_value(encrypted: &str, device_id: &str) -> Result<String, String> {
     let key = derive_key(device_id);
-    let cipher = Aes256Gcm::new_from_slice(&key)
-        .map_err(|e| format!("Cipher error: {}", e))?;
+    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|e| format!("Cipher error: {}", e))?;
 
-    let combined = BASE64.decode(encrypted)
+    let combined = BASE64
+        .decode(encrypted)
         .map_err(|e| format!("Base64 decode error: {}", e))?;
 
     if combined.len() < 12 {
@@ -61,11 +61,11 @@ fn decrypt_value(encrypted: &str, device_id: &str) -> Result<String, String> {
     let (nonce_bytes, ciphertext) = combined.split_at(12);
     let nonce = Nonce::from_slice(nonce_bytes);
 
-    let plaintext = cipher.decrypt(nonce, ciphertext)
+    let plaintext = cipher
+        .decrypt(nonce, ciphertext)
         .map_err(|_| "Decryption failed - token may be corrupted".to_string())?;
 
-    String::from_utf8(plaintext)
-        .map_err(|e| format!("UTF-8 error: {}", e))
+    String::from_utf8(plaintext).map_err(|e| format!("UTF-8 error: {}", e))
 }
 
 /// Response from login/OTP verification
@@ -117,7 +117,10 @@ async fn api_post_form(
         .map_err(|e| format!("Request failed: {}", e))?;
 
     let status = response.status();
-    let text = response.text().await.map_err(|e| format!("Failed to read response: {}", e))?;
+    let text = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response: {}", e))?;
 
     println!("[API] Response status: {}", status);
 
@@ -156,7 +159,10 @@ async fn api_get(
         .map_err(|e| format!("Request failed: {}", e))?;
 
     let status = response.status();
-    let text = response.text().await.map_err(|e| format!("Failed to read response: {}", e))?;
+    let text = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response: {}", e))?;
 
     println!("[API] Response status: {}", status);
 
@@ -191,8 +197,13 @@ async fn api_login_with_password(
 
     let response_text = api_post_form("loginwithpassword", params, None, &device_id).await?;
 
-    serde_json::from_str(&response_text)
-        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
 }
 
 /// Verify OTP after password login
@@ -224,15 +235,21 @@ async fn api_verify_otp(
 
     let response_text = api_post_form("verifyOtp", params, Some(&token), &device_id).await?;
 
-    serde_json::from_str(&response_text)
-        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
 }
 
 /// Get dashboard data (requires auth token)
 #[tauri::command]
 async fn api_get_dashboard(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     // Get stored auth token
-    let token = get_auth_token(app.clone()).await?
+    let token = get_auth_token(app.clone())
+        .await?
         .ok_or_else(|| "Not authenticated".to_string())?;
 
     // Get device ID
@@ -241,21 +258,32 @@ async fn api_get_dashboard(app: tauri::AppHandle) -> Result<serde_json::Value, S
     let params = HashMap::new(); // Empty body for dashboard
     let response_text = api_post_form("getDashboard", params, Some(&token), &device_id).await?;
 
-    serde_json::from_str(&response_text)
-        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
 }
 
 /// Get booking locations (requires auth token)
 #[tauri::command]
 async fn api_get_locations(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    let token = get_auth_token(app.clone()).await?
+    let token = get_auth_token(app.clone())
+        .await?
         .ok_or_else(|| "Not authenticated".to_string())?;
     let device_id = get_device_id(app).await?;
 
     let response_text = api_get("booking/getBookingLocations_v2", Some(&token), &device_id).await?;
 
-    serde_json::from_str(&response_text)
-        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
 }
 
 /// Get available session types for a location and date
@@ -265,7 +293,8 @@ async fn api_get_session_types(
     location_id: String,
     selected_date: String,
 ) -> Result<serde_json::Value, String> {
-    let token = get_auth_token(app.clone()).await?
+    let token = get_auth_token(app.clone())
+        .await?
         .ok_or_else(|| "Not authenticated".to_string())?;
     let device_id = get_device_id(app).await?;
 
@@ -274,10 +303,16 @@ async fn api_get_session_types(
     params.insert("selected_date".to_string(), selected_date);
     params.insert("view_type".to_string(), "by_session_type".to_string());
 
-    let response_text = api_post_form("booking/getLevelTwo_v2", params, Some(&token), &device_id).await?;
+    let response_text =
+        api_post_form("booking/getLevelTwo_v2", params, Some(&token), &device_id).await?;
 
-    serde_json::from_str(&response_text)
-        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
 }
 
 /// Get available time slots for booking
@@ -288,7 +323,8 @@ async fn api_show_slots(
     location_id: String,
     session_type: String,
 ) -> Result<serde_json::Value, String> {
-    let token = get_auth_token(app.clone()).await?
+    let token = get_auth_token(app.clone())
+        .await?
         .ok_or_else(|| "Not authenticated".to_string())?;
     let device_id = get_device_id(app).await?;
 
@@ -300,10 +336,16 @@ async fn api_show_slots(
     params.insert("selected_time".to_string(), "all".to_string());
     params.insert("session_type".to_string(), session_type);
 
-    let response_text = api_post_form("booking/showSlots", params, Some(&token), &device_id).await?;
+    let response_text =
+        api_post_form("booking/showSlots", params, Some(&token), &device_id).await?;
 
-    serde_json::from_str(&response_text)
-        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
 }
 
 /// Book a session
@@ -316,7 +358,8 @@ async fn api_book_session(
     session_type: String,
     location_id: String,
 ) -> Result<serde_json::Value, String> {
-    let token = get_auth_token(app.clone()).await?
+    let token = get_auth_token(app.clone())
+        .await?
         .ok_or_else(|| "Not authenticated".to_string())?;
     let device_id = get_device_id(app).await?;
 
@@ -327,10 +370,16 @@ async fn api_book_session(
     params.insert("session_type".to_string(), session_type);
     params.insert("selected_location_id".to_string(), location_id);
 
-    let response_text = api_post_form("booking/bookSession_v2", params, Some(&token), &device_id).await?;
+    let response_text =
+        api_post_form("booking/bookSession_v2", params, Some(&token), &device_id).await?;
 
-    serde_json::from_str(&response_text)
-        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
 }
 
 /// Cancel/delete a session
@@ -340,7 +389,8 @@ async fn api_delete_session(
     session_record_id: String,
     lead_record_id: String,
 ) -> Result<serde_json::Value, String> {
-    let token = get_auth_token(app.clone()).await?
+    let token = get_auth_token(app.clone())
+        .await?
         .ok_or_else(|| "Not authenticated".to_string())?;
     let device_id = get_device_id(app).await?;
 
@@ -349,10 +399,16 @@ async fn api_delete_session(
     params.insert("booking_id".to_string(), session_record_id);
     params.insert("lead_record_id".to_string(), lead_record_id);
 
-    let response_text = api_post_form("booking/deleteSession", params, Some(&token), &device_id).await?;
+    let response_text =
+        api_post_form("booking/deleteSession", params, Some(&token), &device_id).await?;
 
-    serde_json::from_str(&response_text)
-        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
 }
 
 /// Hash a password using SHA-256 (matching the original Hotworx app)
@@ -441,12 +497,20 @@ async fn store_pending_login(
 
 /// Get pending login data for OTP verification
 #[tauri::command]
-async fn get_pending_login(app: tauri::AppHandle) -> Result<Option<(String, String, String)>, String> {
+async fn get_pending_login(
+    app: tauri::AppHandle,
+) -> Result<Option<(String, String, String)>, String> {
     let store = app.store("auth.json").map_err(|e| e.to_string())?;
 
-    let email = store.get("pending_email").and_then(|v| v.as_str().map(String::from));
-    let password = store.get("pending_password").and_then(|v| v.as_str().map(String::from));
-    let token = store.get("pending_token").and_then(|v| v.as_str().map(String::from));
+    let email = store
+        .get("pending_email")
+        .and_then(|v| v.as_str().map(String::from));
+    let password = store
+        .get("pending_password")
+        .and_then(|v| v.as_str().map(String::from));
+    let token = store
+        .get("pending_token")
+        .and_then(|v| v.as_str().map(String::from));
 
     match (email, password, token) {
         (Some(e), Some(p), Some(t)) => Ok(Some((e, p, t))),
@@ -484,8 +548,12 @@ async fn store_preferred_location(
 async fn get_preferred_location(app: tauri::AppHandle) -> Result<Option<(String, String)>, String> {
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
 
-    let location_id = store.get("preferred_location_id").and_then(|v| v.as_str().map(String::from));
-    let location_name = store.get("preferred_location_name").and_then(|v| v.as_str().map(String::from));
+    let location_id = store
+        .get("preferred_location_id")
+        .and_then(|v| v.as_str().map(String::from));
+    let location_name = store
+        .get("preferred_location_name")
+        .and_then(|v| v.as_str().map(String::from));
 
     match (location_id, location_name) {
         (Some(id), Some(name)) => Ok(Some((id, name))),
@@ -512,18 +580,27 @@ async fn store_preferred_session_type(
 ) -> Result<(), String> {
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
     store.set("preferred_session_type", serde_json::json!(session_type));
-    store.set("preferred_session_type_display", serde_json::json!(session_type_display));
+    store.set(
+        "preferred_session_type_display",
+        serde_json::json!(session_type_display),
+    );
     store.save().map_err(|e| e.to_string())?;
     Ok(())
 }
 
 /// Get the user's preferred session type
 #[tauri::command]
-async fn get_preferred_session_type(app: tauri::AppHandle) -> Result<Option<(String, String)>, String> {
+async fn get_preferred_session_type(
+    app: tauri::AppHandle,
+) -> Result<Option<(String, String)>, String> {
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
 
-    let session_type = store.get("preferred_session_type").and_then(|v| v.as_str().map(String::from));
-    let display = store.get("preferred_session_type_display").and_then(|v| v.as_str().map(String::from));
+    let session_type = store
+        .get("preferred_session_type")
+        .and_then(|v| v.as_str().map(String::from));
+    let display = store
+        .get("preferred_session_type_display")
+        .and_then(|v| v.as_str().map(String::from));
 
     match (session_type, display) {
         (Some(t), Some(d)) => Ok(Some((t, d))),
@@ -540,7 +617,8 @@ async fn api_get_activity_history(
     page_limit: Option<u32>,
     session_type: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let token = get_auth_token(app.clone()).await?
+    let token = get_auth_token(app.clone())
+        .await?
         .ok_or_else(|| "Not authenticated".to_string())?;
     let device_id = get_device_id(app).await?;
 
@@ -551,19 +629,27 @@ async fn api_get_activity_history(
 
     let endpoint = format!(
         "activities/ActivityByLifeTime?page_no={}&page_limit={}&session_type={}",
-        page, limit, urlencoding::encode(&session_filter)
+        page,
+        limit,
+        urlencoding::encode(&session_filter)
     );
 
     let response_text = api_get(&endpoint, Some(&token), &device_id).await?;
 
-    serde_json::from_str(&response_text)
-        .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, &response_text[..response_text.len().min(200)]))
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
 }
 
 /// Get all upcoming booked sessions (not just today)
 #[tauri::command]
 async fn api_get_upcoming_sessions(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    let token = get_auth_token(app.clone()).await?
+    let token = get_auth_token(app.clone())
+        .await?
         .ok_or_else(|| "Not authenticated".to_string())?;
     let device_id = get_device_id(app).await?;
 
@@ -571,11 +657,16 @@ async fn api_get_upcoming_sessions(app: tauri::AppHandle) -> Result<serde_json::
     let mut params = HashMap::new();
     params.insert("type".to_string(), "upcoming".to_string());
 
-    match api_post_form("booking/getBookingHistory", params, Some(&token), &device_id).await {
-        Ok(response_text) => {
-            serde_json::from_str(&response_text)
-                .map_err(|e| format!("Failed to parse response: {}", e))
-        }
+    match api_post_form(
+        "booking/getBookingHistory",
+        params,
+        Some(&token),
+        &device_id,
+    )
+    .await
+    {
+        Ok(response_text) => serde_json::from_str(&response_text)
+            .map_err(|e| format!("Failed to parse response: {}", e)),
         Err(e) => {
             // Fallback: if endpoint doesn't exist, return empty structure
             println!("[API] getBookingHistory failed, falling back: {}", e);
@@ -673,7 +764,8 @@ async fn api_checkin_session(
     session_record_id: String,
     lead_record_id: String,
 ) -> Result<serde_json::Value, String> {
-    let token = get_auth_token(app.clone()).await?
+    let token = get_auth_token(app.clone())
+        .await?
         .ok_or_else(|| "Not authenticated".to_string())?;
     let device_id = get_device_id(app).await?;
 
@@ -684,8 +776,7 @@ async fn api_checkin_session(
     // Try to sync with API - this endpoint may or may not exist
     match api_post_form("booking/checkinSession", params, Some(&token), &device_id).await {
         Ok(response_text) => {
-            serde_json::from_str(&response_text)
-                .map_err(|e| format!("Parse error: {}", e))
+            serde_json::from_str(&response_text).map_err(|e| format!("Parse error: {}", e))
         }
         Err(e) => {
             // API endpoint doesn't exist or failed - return success anyway
@@ -707,20 +798,23 @@ async fn api_complete_session(
     lead_record_id: String,
     actual_duration_seconds: i64,
 ) -> Result<serde_json::Value, String> {
-    let token = get_auth_token(app.clone()).await?
+    let token = get_auth_token(app.clone())
+        .await?
         .ok_or_else(|| "Not authenticated".to_string())?;
     let device_id = get_device_id(app).await?;
 
     let mut params = HashMap::new();
     params.insert("session_record_id".to_string(), session_record_id);
     params.insert("lead_record_id".to_string(), lead_record_id);
-    params.insert("actual_duration".to_string(), actual_duration_seconds.to_string());
+    params.insert(
+        "actual_duration".to_string(),
+        actual_duration_seconds.to_string(),
+    );
 
     // Try to sync with API - this endpoint may or may not exist
     match api_post_form("booking/completeSession", params, Some(&token), &device_id).await {
         Ok(response_text) => {
-            serde_json::from_str(&response_text)
-                .map_err(|e| format!("Parse error: {}", e))
+            serde_json::from_str(&response_text).map_err(|e| format!("Parse error: {}", e))
         }
         Err(e) => {
             println!("[API] Complete session sync failed (expected): {}", e);
@@ -823,7 +917,8 @@ mod tests {
 
     #[test]
     fn test_login_response_deserialization() {
-        let json = r#"{"msg":"success","token":"abc123","two_factor":null,"error":null,"status":"ok"}"#;
+        let json =
+            r#"{"msg":"success","token":"abc123","two_factor":null,"error":null,"status":"ok"}"#;
         let response: LoginResponse = serde_json::from_str(json).unwrap();
 
         assert_eq!(response.msg, Some("success".to_string()));

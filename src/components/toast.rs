@@ -1,5 +1,5 @@
-use leptos::prelude::*;
 use gloo_timers::callback::Timeout;
+use leptos::prelude::*;
 
 #[derive(Clone, Debug)]
 pub struct Toast {
@@ -35,7 +35,8 @@ impl ToastState {
         // Auto-dismiss after 4 seconds
         Timeout::new(4_000, move || {
             toast_signal.set(None);
-        }).forget();
+        })
+        .forget();
     }
 
     pub fn success(&self, message: impl Into<String>) {

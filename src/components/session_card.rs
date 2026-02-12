@@ -1,7 +1,7 @@
+use crate::models::dashboard::PendingSession;
 use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use crate::models::dashboard::PendingSession;
 
 #[wasm_bindgen]
 extern "C" {
@@ -165,9 +165,7 @@ pub fn SessionCard(
 }
 
 #[component]
-pub fn EmptySessionList(
-    #[prop(into)] message: String,
-) -> impl IntoView {
+pub fn EmptySessionList(#[prop(into)] message: String) -> impl IntoView {
     view! {
         <div class="empty-session-list">
             <p class="empty-message">{message}</p>
