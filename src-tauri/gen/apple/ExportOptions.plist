@@ -3,6 +3,15 @@
 <plist version="1.0">
 <dict>
     <key>method</key>
-    <string>debugging</string>
+    <string>app-store-connect</string>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>teamID</key>
+    <string>8832K8LBLC</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.nukleas.bookworx</key>
+        <string>BookWorx App Store</string>
+    </dict>
 </dict>
 </plist>
