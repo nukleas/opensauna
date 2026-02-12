@@ -174,6 +174,26 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
         run: |
+          staple_with_retry() {
+            local FILE_PATH="$1"
+            local MAX_ATTEMPTS=5
+            local INITIAL_DELAY=15
+            for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+              echo "  Staple attempt $attempt of $MAX_ATTEMPTS..."
+              if xcrun stapler staple "$FILE_PATH" 2>&1; then
+                echo "  Stapling succeeded on attempt $attempt."
+                return 0
+              fi
+              if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
+                delay=$((INITIAL_DELAY * (2 ** (attempt - 1))))
+                echo "  Ticket not yet available. Waiting ${delay}s before retry..."
+                sleep "$delay"
+              fi
+            done
+            echo "ERROR: Stapling failed after $MAX_ATTEMPTS attempts."
+            return 1
+          }
+
           DMG_PATH=$(find target/aarch64-apple-darwin/release/bundle/dmg -name "*.dmg" -print -quit)
           if [ -n "$DMG_PATH" ]; then
             echo "Submitting $DMG_PATH for notarization..."
@@ -184,7 +204,7 @@ jobs:
               --wait
 
             echo "Stapling notarization ticket..."
-            xcrun stapler staple "$DMG_PATH"
+            staple_with_retry "$DMG_PATH"
 
             echo "Verifying notarization..."
             spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG_PATH" || true
@@ -198,6 +218,26 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
         run: |
+          staple_with_retry() {
+            local FILE_PATH="$1"
+            local MAX_ATTEMPTS=5
+            local INITIAL_DELAY=15
+            for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+              echo "  Staple attempt $attempt of $MAX_ATTEMPTS..."
+              if xcrun stapler staple "$FILE_PATH" 2>&1; then
+                echo "  Stapling succeeded on attempt $attempt."
+                return 0
+              fi
+              if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
+                delay=$((INITIAL_DELAY * (2 ** (attempt - 1))))
+                echo "  Ticket not yet available. Waiting ${delay}s before retry..."
+                sleep "$delay"
+              fi
+            done
+            echo "ERROR: Stapling failed after $MAX_ATTEMPTS attempts."
+            return 1
+          }
+
           DMG_PATH=$(find target/x86_64-apple-darwin/release/bundle/dmg -name "*.dmg" -print -quit)
           if [ -n "$DMG_PATH" ]; then
             echo "Submitting $DMG_PATH for notarization..."
@@ -208,7 +248,7 @@ jobs:
               --wait
 
             echo "Stapling notarization ticket..."
-            xcrun stapler staple "$DMG_PATH"
+            staple_with_retry "$DMG_PATH"
 
             echo "Verifying notarization..."
             spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG_PATH" || true
@@ -355,6 +395,20 @@ jobs:
           # Clean up the certificate file
           rm -f "$CERTIFICATE_PATH"
 
+      # ── Code Signing: Install Provisioning Profile ───────────────────
+      - name: Install provisioning profile
+        env:
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          PP_PATH="$RUNNER_TEMP/build_pp.mobileprovision"
+          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$PP_PATH"
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/
+          rm -f "$PP_PATH"
+
+          echo "Provisioning profile installed."
+
       # ── Build ─────────────────────────────────────────────────────────
       - name: Install Trunk
         run: cargo install trunk || true
@@ -363,7 +417,7 @@ jobs:
         run: cargo install tauri-cli || true
 
       - name: Build Tauri iOS
-        run: cargo tauri ios build --export-method app-store-connect
+        run: cargo tauri ios build --export-method app-store-connect --ci
 
       # ── Cleanup Keychain ──────────────────────────────────────────────
       - name: Cleanup keychain
@@ -373,6 +427,7 @@ jobs:
           if [ -f "$KEYCHAIN_PATH" ]; then
             security delete-keychain "$KEYCHAIN_PATH"
           fi
+          rm -rf ~/Library/MobileDevice/Provisioning\ Profiles/
 
       # ── Upload Artifacts ──────────────────────────────────────────────
       - name: Upload iOS artifacts
@@ -380,7 +435,7 @@ jobs:
         with:
           name: bookworx-ios
           path: |
-            target/aarch64-apple-ios/release/bundle/**/*.ipa
+            src-tauri/gen/apple/build/arm64/**/*.ipa
           if-no-files-found: warn
 
   build-android:
@@ -468,8 +523,8 @@ jobs:
         with:
           name: bookworx-android
           path: |
-            target/aarch64-linux-android/release/bundle/**/*.apk
-            target/aarch64-linux-android/release/bundle/**/*.aab
+            src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
+            src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: warn
 
   release:
