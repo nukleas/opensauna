@@ -135,14 +135,13 @@ jobs:
       - name: Write keystore.properties
         env:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           cat > "$RUNNER_TEMP/keystore.properties" <<EOF
           storeFile=$RUNNER_TEMP/keystore.jks
           storePassword=$ANDROID_KEYSTORE_PASSWORD
           keyAlias=$ANDROID_KEY_ALIAS
-          keyPassword=$ANDROID_KEY_PASSWORD
+          keyPassword=$ANDROID_KEYSTORE_PASSWORD
           EOF
           sed -i 's/^[[:space:]]*//' "$RUNNER_TEMP/keystore.properties"
 
