@@ -259,6 +259,7 @@ jobs:
           keyAlias=$ANDROID_KEY_ALIAS
           keyPassword=$ANDROID_KEY_PASSWORD
           EOF
+          sed -i 's/^[[:space:]]*//' "$RUNNER_TEMP/keystore.properties"
 
       # ── Build ─────────────────────────────────────────────────────────
       - name: Install Trunk
