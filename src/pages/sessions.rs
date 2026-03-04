@@ -44,9 +44,10 @@ pub fn SessionsPage() -> impl IntoView {
         wasm_bindgen_futures::spawn_local(async move {
             log("[Sessions] Fetching sessions data...");
 
-            let dashboard_args =
-                serde_wasm_bindgen::to_value(&serde_json::json!({ "currentDate": get_today_date() }))
-                    .unwrap();
+            let dashboard_args = serde_wasm_bindgen::to_value(
+                &serde_json::json!({ "currentDate": get_today_date() }),
+            )
+            .unwrap();
             let empty_args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
 
             // Fetch dashboard data for today's sessions
@@ -102,8 +103,10 @@ pub fn SessionsPage() -> impl IntoView {
                         }
                         // Fallback: if no upcoming in response, check for today's pending from earlier
                         if pending_sessions.get().is_empty() {
-                            let fallback_args =
-                                serde_wasm_bindgen::to_value(&serde_json::json!({ "currentDate": get_today_date() })).unwrap();
+                            let fallback_args = serde_wasm_bindgen::to_value(
+                                &serde_json::json!({ "currentDate": get_today_date() }),
+                            )
+                            .unwrap();
                             if let Ok(result) =
                                 JsFuture::from(invoke("api_get_dashboard", fallback_args)).await
                             {

@@ -92,7 +92,10 @@ pub fn DashboardPage() -> impl IntoView {
         wasm_bindgen_futures::spawn_local(async move {
             log("[Dashboard] Fetching dashboard data...");
 
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({ "currentDate": get_today_date() })).unwrap();
+            let args = serde_wasm_bindgen::to_value(
+                &serde_json::json!({ "currentDate": get_today_date() }),
+            )
+            .unwrap();
             let promise = invoke("api_get_dashboard", args);
 
             match JsFuture::from(promise).await {
