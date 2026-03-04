@@ -92,7 +92,7 @@ pub fn DashboardPage() -> impl IntoView {
         wasm_bindgen_futures::spawn_local(async move {
             log("[Dashboard] Fetching dashboard data...");
 
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+            let args = serde_wasm_bindgen::to_value(&serde_json::json!({ "currentDate": get_today_date() })).unwrap();
             let promise = invoke("api_get_dashboard", args);
 
             match JsFuture::from(promise).await {
@@ -120,26 +120,32 @@ pub fn DashboardPage() -> impl IntoView {
                                             "[Dashboard] Parse DashboardData error: {}",
                                             e
                                         ));
-                                        error.set(Some(format!("Parse error: {}", e)));
+                                        error.set(Some(
+                                            "Failed to load dashboard. Pull down to refresh."
+                                                .to_string(),
+                                        ));
                                     }
                                 }
                             } else {
                                 log("[Dashboard] No 'data' field in response");
-                                error.set(Some("No data in response".to_string()));
+                                error.set(Some(
+                                    "Failed to load dashboard. Pull down to refresh.".to_string(),
+                                ));
                             }
                         }
                         Err(e) => {
                             log(&format!("[Dashboard] Deserialize error: {:?}", e));
-                            error.set(Some(format!("Deserialize error: {:?}", e)));
+                            error.set(Some(
+                                "Failed to load dashboard. Pull down to refresh.".to_string(),
+                            ));
                         }
                     }
                 }
                 Err(e) => {
                     log(&format!("[Dashboard] Error: {:?}", e));
-                    let err_str = js_sys::JSON::stringify(&e)
-                        .map(|s| s.as_string().unwrap_or_default())
-                        .unwrap_or_else(|_| format!("{:?}", e));
-                    error.set(Some(format!("Failed to load dashboard: {}", err_str)));
+                    error.set(Some(
+                        "Failed to load dashboard. Pull down to refresh.".to_string(),
+                    ));
                 }
             }
 
@@ -390,4 +396,13 @@ pub fn DashboardPage() -> impl IntoView {
             <BottomNav active=Signal::derive(|| NavItem::Home) />
         </div>
     }
+}
+
+/// Get today's date in YYYY-MM-DD format
+fn get_today_date() -> String {
+    let now = js_sys::Date::new_0();
+    let year = now.get_full_year();
+    let month = now.get_month() + 1; // 0-indexed
+    let day = now.get_date();
+    format!("{:04}-{:02}-{:02}", year, month, day)
 }

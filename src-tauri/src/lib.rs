@@ -245,8 +245,11 @@ async fn api_verify_otp(
 }
 
 /// Get dashboard data (requires auth token)
-#[tauri::command]
-async fn api_get_dashboard(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+#[tauri::command(rename_all = "camelCase")]
+async fn api_get_dashboard(
+    app: tauri::AppHandle,
+    current_date: Option<String>,
+) -> Result<serde_json::Value, String> {
     // Get stored auth token
     let token = get_auth_token(app.clone())
         .await?
@@ -255,7 +258,11 @@ async fn api_get_dashboard(app: tauri::AppHandle) -> Result<serde_json::Value, S
     // Get device ID
     let device_id = get_device_id(app).await?;
 
-    let params = HashMap::new(); // Empty body for dashboard
+    let mut params = HashMap::new();
+    if let Some(date) = current_date {
+        params.insert("current_date".to_string(), date);
+    }
+
     let response_text = api_post_form("getDashboard", params, Some(&token), &device_id).await?;
 
     serde_json::from_str(&response_text).map_err(|e| {
@@ -645,7 +652,13 @@ async fn api_get_activity_history(
     })
 }
 
-/// Get all upcoming booked sessions (not just today)
+/// Get a date string (YYYY-MM-DD) offset by the given number of days from today
+fn get_date_with_offset(days: i64) -> String {
+    let now = chrono::Local::now() + chrono::Duration::days(days);
+    now.format("%Y-%m-%d").to_string()
+}
+
+/// Get all upcoming booked sessions by querying getDashboard for today + next 2 days
 #[tauri::command]
 async fn api_get_upcoming_sessions(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
@@ -653,32 +666,38 @@ async fn api_get_upcoming_sessions(app: tauri::AppHandle) -> Result<serde_json::
         .ok_or_else(|| "Not authenticated".to_string())?;
     let device_id = get_device_id(app).await?;
 
-    // Try the booking history endpoint with "upcoming" filter
-    let mut params = HashMap::new();
-    params.insert("type".to_string(), "upcoming".to_string());
+    let mut all_upcoming = Vec::new();
+    let mut seen_ids = std::collections::HashSet::new();
 
-    match api_post_form(
-        "booking/getBookingHistory",
-        params,
-        Some(&token),
-        &device_id,
-    )
-    .await
-    {
-        Ok(response_text) => serde_json::from_str(&response_text)
-            .map_err(|e| format!("Failed to parse response: {}", e)),
-        Err(e) => {
-            // Fallback: if endpoint doesn't exist, return empty structure
-            println!("[API] getBookingHistory failed, falling back: {}", e);
-            Ok(serde_json::json!({
-                "status": "fallback",
-                "data": {
-                    "upcoming": [],
-                    "message": "Upcoming sessions endpoint not available"
+    // Fetch pending sessions for today + next 2 days
+    for day_offset in 0..3 {
+        let date = get_date_with_offset(day_offset);
+        let mut params = HashMap::new();
+        params.insert("current_date".to_string(), date.clone());
+
+        match api_post_form("getDashboard", params, Some(&token), &device_id).await {
+            Ok(response_text) => {
+                if let Ok(response) = serde_json::from_str::<serde_json::Value>(&response_text) {
+                    if let Some(sessions) = response["data"]["todays_pending_sessions"].as_array() {
+                        for session in sessions {
+                            let id = session["session_record_id"]
+                                .as_str()
+                                .unwrap_or("")
+                                .to_string();
+                            if !id.is_empty() && seen_ids.insert(id) {
+                                all_upcoming.push(session.clone());
+                            }
+                        }
+                    }
                 }
-            }))
+            }
+            Err(e) => println!("[API] getDashboard for {} failed: {}", date, e),
         }
     }
+
+    Ok(serde_json::json!({
+        "data": { "upcoming": all_upcoming }
+    }))
 }
 
 // ========== SESSION TRACKING COMMANDS ==========

@@ -1,6 +1,6 @@
 [package]
 name = "bookworx"
-version = "0.1.0"
+version = "0.2.0"
 description = "BookWorx - Hotworx session booking app"
 authors = ["Nader Heidari"]
 edition = "2021"
@@ -31,6 +31,7 @@ uuid = { version = "1", features = ["v4"] }
 urlencoding = "2"
 aes-gcm = "0.10"
 base64 = "0.22"
+chrono = "0.4"
 
 [dev-dependencies]
 tokio-test = "0.4"

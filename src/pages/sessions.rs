@@ -44,12 +44,15 @@ pub fn SessionsPage() -> impl IntoView {
         wasm_bindgen_futures::spawn_local(async move {
             log("[Sessions] Fetching sessions data...");
 
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+            let dashboard_args =
+                serde_wasm_bindgen::to_value(&serde_json::json!({ "currentDate": get_today_date() }))
+                    .unwrap();
+            let empty_args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
 
             // Fetch dashboard data for today's sessions
-            let dashboard_promise = invoke("api_get_dashboard", args.clone());
+            let dashboard_promise = invoke("api_get_dashboard", dashboard_args.clone());
             // Fetch all upcoming sessions
-            let upcoming_promise = invoke("api_get_upcoming_sessions", args.clone());
+            let upcoming_promise = invoke("api_get_upcoming_sessions", empty_args);
 
             // Process dashboard response
             match JsFuture::from(dashboard_promise).await {
@@ -99,10 +102,10 @@ pub fn SessionsPage() -> impl IntoView {
                         }
                         // Fallback: if no upcoming in response, check for today's pending from earlier
                         if pending_sessions.get().is_empty() {
-                            let args =
-                                serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+                            let fallback_args =
+                                serde_wasm_bindgen::to_value(&serde_json::json!({ "currentDate": get_today_date() })).unwrap();
                             if let Ok(result) =
-                                JsFuture::from(invoke("api_get_dashboard", args)).await
+                                JsFuture::from(invoke("api_get_dashboard", fallback_args)).await
                             {
                                 if let Ok(resp) =
                                     serde_wasm_bindgen::from_value::<serde_json::Value>(result)
@@ -127,10 +130,7 @@ pub fn SessionsPage() -> impl IntoView {
                 }
                 Err(e) => {
                     log(&format!("[Sessions] Upcoming error: {:?}", e));
-                    let err_str = js_sys::JSON::stringify(&e)
-                        .map(|s| s.as_string().unwrap_or_default())
-                        .unwrap_or_else(|_| format!("{:?}", e));
-                    error.set(Some(format!("Failed to load sessions: {}", err_str)));
+                    error.set(Some("Failed to load sessions.".to_string()));
                 }
             }
 
@@ -371,4 +371,13 @@ pub fn SessionsPage() -> impl IntoView {
             <BottomNav active=Signal::derive(|| NavItem::Sessions) />
         </div>
     }
+}
+
+/// Get today's date in YYYY-MM-DD format
+fn get_today_date() -> String {
+    let now = js_sys::Date::new_0();
+    let year = now.get_full_year();
+    let month = now.get_month() + 1; // 0-indexed
+    let day = now.get_date();
+    format!("{:04}-{:02}-{:02}", year, month, day)
 }
