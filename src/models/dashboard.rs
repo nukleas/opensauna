@@ -74,22 +74,27 @@ impl Summary {
 impl PendingSession {
     /// Get a display-friendly time string
     pub fn display_time(&self) -> String {
-        self.slot
-            .clone()
-            .unwrap_or_else(|| "Unknown time".to_string())
+        self.slot.clone().unwrap_or_default()
     }
 
-    /// Get the session display name
+    /// Get the session display name — falls back to `type` field for completed sessions
     pub fn display_name(&self) -> String {
         self.session_name
             .clone()
+            .or_else(|| self.session_type.clone())
             .unwrap_or_else(|| "Session".to_string())
     }
 
     /// Get location display name
     pub fn display_location(&self) -> String {
-        self.location_name
-            .clone()
-            .unwrap_or_else(|| "Unknown location".to_string())
+        self.location_name.clone().unwrap_or_default()
+    }
+
+    /// Get calories burned (completed sessions)
+    pub fn display_calories(&self) -> Option<String> {
+        self.cal_burnt
+            .as_ref()
+            .filter(|c| !c.is_empty() && *c != "0")
+            .map(|c| format!("{} cal", c))
     }
 }

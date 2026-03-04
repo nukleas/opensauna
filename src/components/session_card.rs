@@ -30,14 +30,24 @@ pub fn SessionCard(
     let session_id = session.session_record_id.clone().unwrap_or_default();
     let lead_id = session.lead_record_id.clone().unwrap_or_default();
 
+    let time = session.display_time();
+    let location = session.display_location();
+    let calories = session.display_calories();
+
     view! {
         <div class="session-card">
             <div class="session-header">
                 <h3 class="session-name">{session.display_name()}</h3>
-                <span class="session-time">{session.display_time()}</span>
+                {if !time.is_empty() {
+                    Some(view! { <span class="session-time">{time}</span> })
+                } else if let Some(ref cal) = calories {
+                    Some(view! { <span class="session-time">{cal.clone()}</span> })
+                } else {
+                    None
+                }}
             </div>
             <div class="session-details">
-                <p class="session-location">{session.display_location()}</p>
+                {(!location.is_empty()).then(|| view! { <p class="session-location">{location}</p> })}
                 {session.display_date.clone().map(|d| view! { <p class="session-date">{d}</p> })}
                 {session.duration.clone().map(|d| view! { <p class="session-duration">{d} " mins"</p> })}
             </div>
@@ -92,10 +102,7 @@ pub fn SessionCard(
                                                         }
                                                         Err(e) => {
                                                             log(&format!("[SessionCard] Cancel error: {:?}", e));
-                                                            let err_str = js_sys::JSON::stringify(&e)
-                                                                .map(|s| s.as_string().unwrap_or_default())
-                                                                .unwrap_or_else(|_| format!("{:?}", e));
-                                                            error_msg.set(Some(format!("Failed: {}", err_str)));
+                                                            error_msg.set(Some("Failed to cancel session.".to_string()));
                                                             cancelling.set(false);
                                                             confirming.set(false);
                                                         }
