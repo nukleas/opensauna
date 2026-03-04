@@ -54,7 +54,7 @@ pub fn SessionCard(
 
             // Error message
             {move || error_msg.get().map(|e| view! {
-                <div class="error-message" style="margin-top: 8px; font-size: 0.875rem;">{e}</div>
+                <div class="error-message session-card-error">{e}</div>
             })}
 
             // Show confirm buttons when confirming
