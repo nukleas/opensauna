@@ -141,9 +141,9 @@ impl ApiClient {
         } else {
             headers_map.insert("Content-Type".to_string(), "application/json".to_string());
         }
-        headers_map.insert("User-Agent".to_string(), "okhttp/4.9.3".to_string());
+        headers_map.insert("User-Agent".to_string(), "okhttp/4.12.0".to_string());
         headers_map.insert("sec-ch-ua-platform".to_string(), "Android".to_string());
-        headers_map.insert("application-version".to_string(), "5.0.0".to_string());
+        headers_map.insert("application-version".to_string(), "6.5.5".to_string());
         headers_map.insert("device-id".to_string(), device_id.clone());
 
         if let Some(ref token) = self.token {

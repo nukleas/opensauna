@@ -92,9 +92,9 @@ async fn api_post_form(
     let mut request = client
         .post(&url)
         .header("Content-Type", "application/x-www-form-urlencoded")
-        .header("User-Agent", "okhttp/4.9.3")
+        .header("User-Agent", "okhttp/4.12.0")
         .header("sec-ch-ua-platform", "Android")
-        .header("application-version", "5.0.0")
+        .header("application-version", "6.5.5")
         .header("device-id", device_id);
 
     if let Some(token) = auth_token {
@@ -142,9 +142,9 @@ async fn api_get(
     let client = reqwest::Client::new();
     let mut request = client
         .get(&url)
-        .header("User-Agent", "okhttp/4.9.3")
+        .header("User-Agent", "okhttp/4.12.0")
         .header("sec-ch-ua-platform", "Android")
-        .header("application-version", "5.0.0")
+        .header("application-version", "6.5.5")
         .header("device-id", device_id);
 
     if let Some(token) = auth_token {
@@ -313,11 +313,16 @@ async fn api_get_session_types(
     let response_text =
         api_post_form("booking/getLevelTwo_v2", params, Some(&token), &device_id).await?;
 
+    println!(
+        "[API] getLevelTwo_v2 raw response: {}",
+        &response_text[..response_text.len().min(500)]
+    );
+
     serde_json::from_str(&response_text).map_err(|e| {
         format!(
             "Failed to parse response: {} - Body: {}",
             e,
-            &response_text[..response_text.len().min(200)]
+            &response_text[..response_text.len().min(500)]
         )
     })
 }
@@ -346,11 +351,16 @@ async fn api_show_slots(
     let response_text =
         api_post_form("booking/showSlots", params, Some(&token), &device_id).await?;
 
+    println!(
+        "[API] showSlots raw response: {}",
+        &response_text[..response_text.len().min(1000)]
+    );
+
     serde_json::from_str(&response_text).map_err(|e| {
         format!(
             "Failed to parse response: {} - Body: {}",
             e,
-            &response_text[..response_text.len().min(200)]
+            &response_text[..response_text.len().min(500)]
         )
     })
 }

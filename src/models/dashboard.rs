@@ -1,4 +1,25 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+fn deserialize_optional_i32_from_str<'de, D>(deserializer: D) -> Result<Option<i32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrInt {
+        String(String),
+        Int(i32),
+    }
+
+    match Option::<StringOrInt>::deserialize(deserializer)? {
+        Some(StringOrInt::String(s)) => s
+            .parse::<i32>()
+            .map(Some)
+            .map_err(serde::de::Error::custom),
+        Some(StringOrInt::Int(i)) => Ok(Some(i)),
+        None => Ok(None),
+    }
+}
 
 /// Dashboard API response
 #[derive(Debug, Clone, Deserialize)]
@@ -43,7 +64,7 @@ pub struct Summary {
     pub total_sessions: Option<String>,
     #[serde(default)]
     pub total_cal_burned: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_i32_from_str")]
     pub day_for_current_sprint: Option<i32>,
     #[serde(default)]
     pub continious_streak: Option<String>,
