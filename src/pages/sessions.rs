@@ -102,7 +102,7 @@ pub fn SessionsPage() -> impl IntoView {
                             }
                         }
                         // Fallback: if no upcoming in response, check for today's pending from earlier
-                        if pending_sessions.get().is_empty() {
+                        if pending_sessions.get_untracked().is_empty() {
                             let fallback_args = serde_wasm_bindgen::to_value(
                                 &serde_json::json!({ "currentDate": get_today_date() }),
                             )
@@ -146,11 +146,10 @@ pub fn SessionsPage() -> impl IntoView {
         wasm_bindgen_futures::spawn_local(async move {
             log("[Sessions] Fetching activity history from API...");
 
-            // Request up to 100 activities, all session types
+            // Pass empty session_type for all types (Android app uses "" not "all")
             let args = serde_wasm_bindgen::to_value(&serde_json::json!({
                 "pageNo": 1,
                 "pageLimit": 100,
-                "sessionType": "all"
             }))
             .unwrap();
             let promise = invoke("api_get_activity_history", args);
@@ -161,26 +160,38 @@ pub fn SessionsPage() -> impl IntoView {
                         serde_wasm_bindgen::from_value::<serde_json::Value>(result)
                     {
                         log(&format!(
-                            "[Sessions] Activity history response: {:?}",
+                            "[Sessions] Activity history keys: {:?}",
                             response
+                                .as_object()
+                                .map(|m| m.keys().collect::<Vec<_>>())
                         ));
 
-                        // The API returns data in a specific structure, extract the activities
-                        if let Some(data) = response.get("data") {
-                            if let Some(activities) = data.as_array() {
-                                log(&format!(
-                                    "[Sessions] {} activity entries from API",
-                                    activities.len()
-                                ));
-                                session_history.set(activities.clone());
-                            }
-                        } else if let Some(activities) = response.as_array() {
-                            // Maybe it's a direct array
+                        // API returns: { "activities": [...], "ninety_days_activities": [...], "no_of_pages": N }
+                        let activities = response
+                            .get("activities")
+                            .and_then(|v| v.as_array())
+                            // Fallback: try "data" key or "data" as array
+                            .or_else(|| {
+                                response
+                                    .get("data")
+                                    .and_then(|d| d.as_array())
+                            });
+
+                        if let Some(activities) = activities {
                             log(&format!(
-                                "[Sessions] {} activity entries (direct array)",
+                                "[Sessions] {} activity entries from API",
                                 activities.len()
                             ));
                             session_history.set(activities.clone());
+                        } else {
+                            log(&format!(
+                                "[Sessions] No activities found. Response: {}",
+                                serde_json::to_string(&response)
+                                    .unwrap_or_default()
+                                    .chars()
+                                    .take(500)
+                                    .collect::<String>()
+                            ));
                         }
                     }
                 }
@@ -322,11 +333,19 @@ pub fn SessionsPage() -> impl IntoView {
                                                 .and_then(|v| v.as_str())
                                                 .unwrap_or("")
                                                 .to_string();
-                                            // API returns total_burnt as calories (string)
+                                            // API returns total_burnt as "192 Cal" already formatted
                                             let calories = entry.get("total_burnt")
-                                                .and_then(|v| v.as_str())
-                                                .or_else(|| entry.get("total_burnt").and_then(|v| v.as_i64()).map(|_| ""))
-                                                .map(|c| if c.is_empty() { "--".to_string() } else { format!("{} cal", c) })
+                                                .and_then(|v| v.as_str().or_else(|| v.as_i64().map(|_| "")))
+                                                .map(|c| {
+                                                    let c = c.trim();
+                                                    if c.is_empty() {
+                                                        "--".to_string()
+                                                    } else if c.contains(char::is_alphabetic) {
+                                                        c.to_string() // Already has units like "192 Cal"
+                                                    } else {
+                                                        format!("{} cal", c) // Raw number, add unit
+                                                    }
+                                                })
                                                 .unwrap_or_else(|| "--".to_string());
                                             let date = entry.get("display_date")
                                                 .and_then(|v| v.as_str())

@@ -640,9 +640,12 @@ async fn api_get_activity_history(
     let device_id = get_device_id(app).await?;
 
     // Build query string
+    // Android app uses page_limit=3 and empty string for "all session types"
     let page = page_no.unwrap_or(1);
     let limit = page_limit.unwrap_or(50);
-    let session_filter = session_type.unwrap_or_else(|| "all".to_string());
+    let session_filter = session_type
+        .filter(|s| s != "all" && !s.is_empty())
+        .unwrap_or_default(); // empty string = all types
 
     let endpoint = format!(
         "activities/ActivityByLifeTime?page_no={}&page_limit={}&session_type={}",
@@ -708,6 +711,270 @@ async fn api_get_upcoming_sessions(app: tauri::AppHandle) -> Result<serde_json::
     Ok(serde_json::json!({
         "data": { "upcoming": all_upcoming }
     }))
+}
+
+// ========== PROFILE COMMANDS ==========
+
+/// Get user profile
+#[tauri::command]
+async fn api_view_profile(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone())
+        .await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let params = HashMap::new();
+    let response_text =
+        api_post_form("general/view_profile", params, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
+}
+
+/// Update user profile
+#[tauri::command(rename_all = "camelCase")]
+async fn api_update_profile(
+    app: tauri::AppHandle,
+    first_name: String,
+    last_name: String,
+    dob: String,
+    gender: String,
+    height: String,
+    weight: String,
+    address: String,
+) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone())
+        .await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let mut params = HashMap::new();
+    params.insert("first_name".to_string(), first_name);
+    params.insert("last_name".to_string(), last_name);
+    params.insert("dob".to_string(), dob);
+    params.insert("gender".to_string(), gender);
+    params.insert("height".to_string(), height);
+    params.insert("weight".to_string(), weight);
+    params.insert("address".to_string(), address);
+
+    let response_text =
+        api_post_form("general/update_profile", params, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
+}
+
+// ========== SUMMARY / STATS COMMANDS ==========
+
+/// Get daily summary (calories breakdown for a date)
+#[tauri::command(rename_all = "camelCase")]
+async fn api_get_summary(app: tauri::AppHandle, date: String) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone())
+        .await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let mut params = HashMap::new();
+    params.insert("date".to_string(), date);
+
+    let response_text =
+        api_post_form("general/get_summary", params, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
+}
+
+/// Get 30-day summary
+#[tauri::command]
+async fn api_get_thirty_day_summary(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone())
+        .await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let params = HashMap::new();
+    let response_text = api_post_form(
+        "general/get_summary_thirty_days",
+        params,
+        Some(&token),
+        &device_id,
+    )
+    .await?;
+
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
+}
+
+/// Get 90-day summary
+#[tauri::command]
+async fn api_get_ninety_day_summary(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone())
+        .await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let params = HashMap::new();
+    let response_text = api_post_form(
+        "general/get_ninety_days_summary",
+        params,
+        Some(&token),
+        &device_id,
+    )
+    .await?;
+
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
+}
+
+/// Get calorie stats (lifetime)
+#[tauri::command]
+async fn api_get_calorie_stats(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone())
+        .await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let params = HashMap::new();
+    let response_text =
+        api_post_form("general/view_calorie_stats", params, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
+}
+
+// ========== GOALS COMMANDS ==========
+
+/// View user goals
+#[tauri::command]
+async fn api_view_goals(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone())
+        .await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let params = HashMap::new();
+    let response_text =
+        api_post_form("general/viewGoals", params, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
+}
+
+/// Update user goals
+#[tauri::command(rename_all = "camelCase")]
+async fn api_update_goals(
+    app: tauri::AppHandle,
+    current_weight: String,
+    target_weight: String,
+    target_weight_goal_date: String,
+    weekly_session_goal: String,
+) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone())
+        .await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let mut params = HashMap::new();
+    params.insert("current_weight".to_string(), current_weight);
+    params.insert("target_weight".to_string(), target_weight);
+    params.insert(
+        "target_weight_goal_date".to_string(),
+        target_weight_goal_date,
+    );
+    params.insert("weekly_session_goal".to_string(), weekly_session_goal);
+
+    let response_text =
+        api_post_form("general/updateGoals", params, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
+}
+
+/// Get weight history
+#[tauri::command]
+async fn api_get_weight(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone())
+        .await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let params = HashMap::new();
+    let response_text =
+        api_post_form("general/get_weight", params, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
+}
+
+/// Set user weight
+#[tauri::command(rename_all = "camelCase")]
+async fn api_set_weight(
+    app: tauri::AppHandle,
+    weight_in_pound: String,
+) -> Result<serde_json::Value, String> {
+    let token = get_auth_token(app.clone())
+        .await?
+        .ok_or_else(|| "Not authenticated".to_string())?;
+    let device_id = get_device_id(app).await?;
+
+    let mut params = HashMap::new();
+    params.insert("weight_in_pound".to_string(), weight_in_pound);
+
+    let response_text =
+        api_post_form("general/set_weight", params, Some(&token), &device_id).await?;
+
+    serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "Failed to parse response: {} - Body: {}",
+            e,
+            &response_text[..response_text.len().min(200)]
+        )
+    })
 }
 
 // ========== SESSION TRACKING COMMANDS ==========
@@ -884,6 +1151,19 @@ pub fn run() {
             api_show_slots,
             api_book_session,
             api_delete_session,
+            // Profile commands
+            api_view_profile,
+            api_update_profile,
+            // Summary / Stats commands
+            api_get_summary,
+            api_get_thirty_day_summary,
+            api_get_ninety_day_summary,
+            api_get_calorie_stats,
+            // Goals commands
+            api_view_goals,
+            api_update_goals,
+            api_get_weight,
+            api_set_weight,
             // Session tracking commands
             store_active_session,
             get_active_session,

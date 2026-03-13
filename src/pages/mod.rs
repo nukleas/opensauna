@@ -3,6 +3,7 @@ pub mod dashboard;
 pub mod locations;
 pub mod login;
 pub mod otp;
+pub mod profile;
 pub mod quick_book;
 pub mod sessions;
 
@@ -11,5 +12,6 @@ pub use dashboard::*;
 pub use locations::*;
 pub use login::*;
 pub use otp::*;
+pub use profile::*;
 pub use quick_book::*;
 pub use sessions::*;

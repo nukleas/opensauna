@@ -4,7 +4,8 @@ use leptos_router::path;
 
 use crate::components::toast::{provide_toast_state, ToastContainer};
 use crate::pages::{
-    BookingPage, DashboardPage, LocationsPage, LoginPage, OtpPage, QuickBookPage, SessionsPage,
+    BookingPage, DashboardPage, LocationsPage, LoginPage, OtpPage, ProfilePage, QuickBookPage,
+    SessionsPage,
 };
 use crate::state::{provide_auth_state, provide_pending_login, provide_session_tracking_state};
 
@@ -40,6 +41,7 @@ pub fn App() -> impl IntoView {
                 <Route path=path!("/book/:location_id") view=AuthenticatedBooking />
                 <Route path=path!("/quick-book") view=AuthenticatedQuickBook />
                 <Route path=path!("/sessions") view=AuthenticatedSessions />
+                <Route path=path!("/profile") view=AuthenticatedProfile />
             </Routes>
         </Router>
     }
@@ -140,6 +142,31 @@ fn AuthenticatedSessions() -> impl IntoView {
                 fallback=|| view! { <Redirect path="/login" /> }
             >
                 <SessionsPage />
+            </Show>
+        </Show>
+    }
+}
+
+#[component]
+fn AuthenticatedProfile() -> impl IntoView {
+    let auth = crate::state::use_auth_state();
+    let is_authenticated = auth.is_authenticated();
+    let is_loading = auth.loading;
+
+    view! {
+        <Show
+            when=move || !is_loading.get()
+            fallback=|| view! {
+                <div class="auth-loading">
+                    <div class="spinner"></div>
+                </div>
+            }
+        >
+            <Show
+                when=move || is_authenticated.get()
+                fallback=|| view! { <Redirect path="/login" /> }
+            >
+                <ProfilePage />
             </Show>
         </Show>
     }

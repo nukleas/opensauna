@@ -1,4 +1,4 @@
-use crate::components::icons::{IconCalendar, IconCalendarPlus, IconHome};
+use crate::components::icons::{IconCalendar, IconCalendarPlus, IconHome, IconUser};
 use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 
@@ -7,6 +7,7 @@ pub enum NavItem {
     Home,
     Book,
     Sessions,
+    Profile,
 }
 
 #[component]
@@ -58,6 +59,18 @@ pub fn BottomNav(#[prop(into)] active: Signal<NavItem>) -> impl IntoView {
                     <IconCalendar />
                 </span>
                 <span class="nav-label">"Sessions"</span>
+            </button>
+            <button
+                class=move || nav_item_class(NavItem::Profile)
+                on:click={
+                    let navigate = navigate.clone();
+                    move |_| navigate("/profile", Default::default())
+                }
+            >
+                <span class="nav-icon">
+                    <IconUser />
+                </span>
+                <span class="nav-label">"Profile"</span>
             </button>
         </nav>
     }
