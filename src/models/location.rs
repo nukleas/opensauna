@@ -46,6 +46,7 @@ pub struct LocationsResponse {
     pub data: Option<LocationsData>,
 }
 
+/// Inner data payload from the getBookingLocations response.
 #[derive(Debug, Clone, Deserialize)]
 pub struct LocationsData {
     pub locations: Option<Vec<Location>>,
@@ -68,9 +69,7 @@ pub struct SessionType {
 }
 
 /// Handle session_types being either an array or a single object
-fn deserialize_session_types<'de, D>(
-    deserializer: D,
-) -> Result<Option<Vec<SessionType>>, D::Error>
+fn deserialize_session_types<'de, D>(deserializer: D) -> Result<Option<Vec<SessionType>>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -89,6 +88,7 @@ where
 }
 
 impl Location {
+    /// Whether the member is allowed to book at this location (handles "1", "true", "yes").
     pub fn is_allowed(&self) -> bool {
         matches!(
             self.is_allow.as_deref(),

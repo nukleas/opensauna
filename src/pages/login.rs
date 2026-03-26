@@ -36,6 +36,7 @@ impl LoginResponse {
     }
 }
 
+/// Email and password login page. Redirects to OTP if two-factor is required.
 #[component]
 pub fn LoginPage() -> impl IntoView {
     let auth = use_auth_state();

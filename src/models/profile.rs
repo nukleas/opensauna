@@ -75,6 +75,7 @@ pub struct ProfileData {
 }
 
 impl ProfileData {
+    /// Full name, falling back to first+last, then "User".
     pub fn display_name(&self) -> String {
         self.full_name
             .clone()
@@ -88,6 +89,7 @@ impl ProfileData {
             .unwrap_or_else(|| "User".to_string())
     }
 
+    /// Email address, checking both `email` and `email_address` fields.
     pub fn display_email(&self) -> String {
         self.email
             .clone()
@@ -95,6 +97,7 @@ impl ProfileData {
             .unwrap_or_default()
     }
 
+    /// Phone number, checking both `phone` and `phone_number` fields.
     pub fn display_phone(&self) -> String {
         self.phone
             .clone()
@@ -102,14 +105,17 @@ impl ProfileData {
             .unwrap_or_default()
     }
 
+    /// Height string, defaults to "--".
     pub fn display_height(&self) -> String {
         self.height.clone().unwrap_or_else(|| "--".to_string())
     }
 
+    /// Weight string, defaults to "--".
     pub fn display_weight(&self) -> String {
         self.weight.clone().unwrap_or_else(|| "--".to_string())
     }
 
+    /// Gender normalized to "Male"/"Female", defaults to "--".
     pub fn display_gender(&self) -> String {
         match self.gender.as_deref() {
             Some("M") | Some("male") => "Male".to_string(),
@@ -119,6 +125,7 @@ impl ProfileData {
         }
     }
 
+    /// Date of birth string, defaults to "--".
     pub fn display_dob(&self) -> String {
         self.dob.clone().unwrap_or_else(|| "--".to_string())
     }
@@ -171,11 +178,13 @@ pub struct ThirtyDaySummaryResponse {
     pub data: Option<Vec<ThirtyDaySummaryWrapper>>,
 }
 
+/// Wrapper for the nested `data` field in 30-day summary responses.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ThirtyDaySummaryWrapper {
     pub data: Option<ThirtyDaySummaryData>,
 }
 
+/// 30-day summary stats: sessions, calories, weight, and body fat.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct ThirtyDaySummaryData {
     pub total_sessions: Option<String>,
@@ -194,6 +203,7 @@ pub struct NinetyDaySummaryResponse {
     pub data: Option<NinetyDaySummaryData>,
 }
 
+/// 90-day summary stats: date range, calorie progress, and level.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct NinetyDaySummaryData {
     pub start_date: Option<String>,
@@ -213,6 +223,7 @@ pub struct CalorieStatsResponse {
     pub data: Option<CalorieStatsData>,
 }
 
+/// Lifetime calorie statistics breakdown.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct CalorieStatsData {
     pub total_session: Option<String>,
@@ -224,30 +235,35 @@ pub struct CalorieStatsData {
 }
 
 impl CalorieStatsData {
+    /// Total session count, defaults to "0".
     pub fn total_sessions_display(&self) -> String {
         self.total_session
             .clone()
             .unwrap_or_else(|| "0".to_string())
     }
 
+    /// Total calories burned (lifetime), defaults to "0".
     pub fn total_calories_display(&self) -> String {
         self.total_calories_burned
             .clone()
             .unwrap_or_else(|| "0".to_string())
     }
 
+    /// Workout-only calories (excluding afterburn), defaults to "0".
     pub fn workout_calories_display(&self) -> String {
         self.workout_calories_burned
             .clone()
             .unwrap_or_else(|| "0".to_string())
     }
 
+    /// Afterburn (EPOC) calories, defaults to "0".
     pub fn afterburn_display(&self) -> String {
         self.total_one_hour_burned
             .clone()
             .unwrap_or_else(|| "0".to_string())
     }
 
+    /// Average calories per session, defaults to "0".
     pub fn avg_calories_display(&self) -> String {
         self.avg_calorie_burned
             .clone()
@@ -265,6 +281,7 @@ pub struct ViewGoalsResponse {
     pub data: Option<GoalsData>,
 }
 
+/// User fitness goals (weight target, session frequency).
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct GoalsData {
     pub current_weight: Option<serde_json::Value>,
@@ -274,6 +291,7 @@ pub struct GoalsData {
 }
 
 impl GoalsData {
+    /// Current weight as string, handles both number and string JSON values.
     pub fn current_weight_display(&self) -> String {
         match &self.current_weight {
             Some(serde_json::Value::Number(n)) => n.to_string(),
@@ -282,6 +300,7 @@ impl GoalsData {
         }
     }
 
+    /// Target weight as string, handles both number and string JSON values.
     pub fn target_weight_display(&self) -> String {
         match &self.target_weight {
             Some(serde_json::Value::Number(n)) => n.to_string(),
@@ -290,12 +309,14 @@ impl GoalsData {
         }
     }
 
+    /// Target date for reaching goal weight, defaults to "--".
     pub fn goal_date_display(&self) -> String {
         self.target_weight_goal_date
             .clone()
             .unwrap_or_else(|| "--".to_string())
     }
 
+    /// Weekly session goal count, defaults to "--".
     pub fn weekly_sessions_display(&self) -> String {
         self.weekly_session_goal
             .clone()
@@ -321,6 +342,7 @@ pub struct WeightResponse {
     pub data: Option<Vec<WeightEntry>>,
 }
 
+/// A single weight log entry.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WeightEntry {
     pub weight_in_pound: Option<String>,

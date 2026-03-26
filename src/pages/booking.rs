@@ -21,6 +21,7 @@ fn navigate_to(path: &str) {
     }
 }
 
+/// Session booking flow: date picker, session type selector, and time slot grid.
 #[component]
 pub fn BookingPage() -> impl IntoView {
     let params = use_params_map();

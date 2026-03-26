@@ -12,10 +12,9 @@ where
     }
 
     match Option::<StringOrInt>::deserialize(deserializer)? {
-        Some(StringOrInt::String(s)) => s
-            .parse::<i32>()
-            .map(Some)
-            .map_err(serde::de::Error::custom),
+        Some(StringOrInt::String(s)) => {
+            s.parse::<i32>().map(Some).map_err(serde::de::Error::custom)
+        }
         Some(StringOrInt::Int(i)) => Ok(Some(i)),
         None => Ok(None),
     }
@@ -73,18 +72,21 @@ pub struct Summary {
 }
 
 impl Summary {
+    /// Total sessions as a display string, defaults to "0".
     pub fn sessions_count(&self) -> String {
         self.total_sessions
             .clone()
             .unwrap_or_else(|| "0".to_string())
     }
 
+    /// Total calories burned as a display string, defaults to "0".
     pub fn calories_burned(&self) -> String {
         self.total_cal_burned
             .clone()
             .unwrap_or_else(|| "0".to_string())
     }
 
+    /// Current consecutive-day streak as a display string, defaults to "0".
     pub fn streak(&self) -> String {
         self.continious_streak
             .clone()

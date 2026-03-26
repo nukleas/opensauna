@@ -13,6 +13,7 @@ extern "C" {
     fn log(s: &str);
 }
 
+/// Activity history page with upcoming and completed sessions, filterable by date range.
 #[component]
 pub fn SessionsPage() -> impl IntoView {
     let pending_sessions: RwSignal<Vec<PendingSession>> = RwSignal::new(Vec::new());
@@ -161,9 +162,7 @@ pub fn SessionsPage() -> impl IntoView {
                     {
                         log(&format!(
                             "[Sessions] Activity history keys: {:?}",
-                            response
-                                .as_object()
-                                .map(|m| m.keys().collect::<Vec<_>>())
+                            response.as_object().map(|m| m.keys().collect::<Vec<_>>())
                         ));
 
                         // API returns: { "activities": [...], "ninety_days_activities": [...], "no_of_pages": N }
@@ -171,11 +170,7 @@ pub fn SessionsPage() -> impl IntoView {
                             .get("activities")
                             .and_then(|v| v.as_array())
                             // Fallback: try "data" key or "data" as array
-                            .or_else(|| {
-                                response
-                                    .get("data")
-                                    .and_then(|d| d.as_array())
-                            });
+                            .or_else(|| response.get("data").and_then(|d| d.as_array()));
 
                         if let Some(activities) = activities {
                             log(&format!(

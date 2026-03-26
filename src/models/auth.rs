@@ -67,10 +67,12 @@ pub struct UserProfile {
 }
 
 impl LoginResponse {
+    /// Returns `true` if the response contains a token and no error.
     pub fn is_success(&self) -> bool {
         self.token.is_some() && self.error.is_none()
     }
 
+    /// Returns `true` if the server is requesting OTP verification.
     pub fn requires_otp(&self) -> bool {
         self.two_factor.as_deref() == Some("yes")
     }

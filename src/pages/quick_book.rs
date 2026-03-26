@@ -20,6 +20,7 @@ fn navigate_to(path: &str) {
     }
 }
 
+/// One-tap rebooking using saved location and session type preferences.
 #[component]
 pub fn QuickBookPage() -> impl IntoView {
     // Preferences

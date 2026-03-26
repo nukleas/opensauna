@@ -22,6 +22,7 @@ fn now_ms() -> i64 {
     date_now() as i64
 }
 
+/// Full-screen view for an in-progress workout session, showing timer, calories, and location.
 #[component]
 pub fn ActiveSessionView(
     /// The active session being tracked

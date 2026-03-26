@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 
+/// Primary action button with optional loading and disabled states.
 #[component]
 pub fn Button(
     #[prop(into)] label: String,
@@ -48,6 +49,7 @@ pub fn Button(
     }
 }
 
+/// Compact button showing an icon with an optional text label.
 #[component]
 pub fn IconButton(
     #[prop(into)] icon: String,

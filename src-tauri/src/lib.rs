@@ -860,8 +860,13 @@ async fn api_get_calorie_stats(app: tauri::AppHandle) -> Result<serde_json::Valu
     let device_id = get_device_id(app).await?;
 
     let params = HashMap::new();
-    let response_text =
-        api_post_form("general/view_calorie_stats", params, Some(&token), &device_id).await?;
+    let response_text = api_post_form(
+        "general/view_calorie_stats",
+        params,
+        Some(&token),
+        &device_id,
+    )
+    .await?;
 
     serde_json::from_str(&response_text).map_err(|e| {
         format!(
@@ -1122,6 +1127,7 @@ async fn api_complete_session(
     }
 }
 
+/// Initialize and run the Tauri application with all plugins and IPC command handlers.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()

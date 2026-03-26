@@ -13,6 +13,7 @@ extern "C" {
     fn log(s: &str);
 }
 
+/// Profile page with user info, calorie stats, goals management, and logout.
 #[component]
 pub fn ProfilePage() -> impl IntoView {
     let profile: RwSignal<Option<ProfileData>> = RwSignal::new(None);
@@ -65,24 +66,19 @@ pub fn ProfilePage() -> impl IntoView {
                         ));
 
                         // API returns data as array: {"data": [{"data": {...profile...}}]}
-                        let profile_data = response
-                            .get("data")
-                            .and_then(|d| {
-                                // Try data[0].data first (actual API format)
-                                d.as_array()
-                                    .and_then(|arr| arr.first())
-                                    .and_then(|item| item.get("data"))
-                                    // Fall back to data as direct object
-                                    .or(if d.is_object() { Some(d) } else { None })
-                            });
+                        let profile_data = response.get("data").and_then(|d| {
+                            // Try data[0].data first (actual API format)
+                            d.as_array()
+                                .and_then(|arr| arr.first())
+                                .and_then(|item| item.get("data"))
+                                // Fall back to data as direct object
+                                .or(if d.is_object() { Some(d) } else { None })
+                        });
 
                         if let Some(data) = profile_data {
                             match serde_json::from_value::<ProfileData>(data.clone()) {
                                 Ok(p) => {
-                                    log(&format!(
-                                        "[Profile] Parsed profile: {}",
-                                        p.display_name()
-                                    ));
+                                    log(&format!("[Profile] Parsed profile: {}", p.display_name()));
                                     profile.set(Some(p));
                                 }
                                 Err(e) => {
@@ -206,14 +202,12 @@ pub fn ProfilePage() -> impl IntoView {
                         if let Ok(response) =
                             serde_wasm_bindgen::from_value::<serde_json::Value>(result)
                         {
-                            let refreshed = response
-                                .get("data")
-                                .and_then(|d| {
-                                    d.as_array()
-                                        .and_then(|arr| arr.first())
-                                        .and_then(|item| item.get("data"))
-                                        .or(if d.is_object() { Some(d) } else { None })
-                                });
+                            let refreshed = response.get("data").and_then(|d| {
+                                d.as_array()
+                                    .and_then(|arr| arr.first())
+                                    .and_then(|item| item.get("data"))
+                                    .or(if d.is_object() { Some(d) } else { None })
+                            });
                             if let Some(data) = refreshed {
                                 if let Ok(p) = serde_json::from_value::<ProfileData>(data.clone()) {
                                     profile.set(Some(p));

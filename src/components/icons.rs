@@ -1,3 +1,5 @@
+//! SVG icon components. Each icon accepts an optional [`IconSize`] prop.
+
 use leptos::prelude::*;
 
 /// Icon size variants

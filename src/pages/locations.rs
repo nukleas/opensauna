@@ -20,6 +20,7 @@ fn navigate_to(path: &str) {
     }
 }
 
+/// Studio location picker — lists available and frequent locations, then navigates to booking.
 #[component]
 pub fn LocationsPage() -> impl IntoView {
     let locations: RwSignal<Vec<Location>> = RwSignal::new(Vec::new());

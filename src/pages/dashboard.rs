@@ -24,6 +24,7 @@ fn navigate_to(path: &str) {
     }
 }
 
+/// Home screen showing today's sessions, summary stats, and an active session banner.
 #[component]
 pub fn DashboardPage() -> impl IntoView {
     let auth = use_auth_state();

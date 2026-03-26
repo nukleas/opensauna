@@ -2,6 +2,7 @@ use crate::components::icons::{IconCalendar, IconCalendarPlus, IconHome, IconUse
 use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 
+/// Tabs in the bottom navigation bar.
 #[derive(Clone, PartialEq)]
 pub enum NavItem {
     Home,
@@ -10,6 +11,7 @@ pub enum NavItem {
     Profile,
 }
 
+/// Bottom tab bar with Home, Book, Sessions, and Profile tabs.
 #[component]
 pub fn BottomNav(#[prop(into)] active: Signal<NavItem>) -> impl IntoView {
     let navigate = use_navigate();

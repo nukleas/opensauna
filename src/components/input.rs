@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 
+/// Labeled text input with optional error display.
 #[component]
 pub fn TextInput(
     #[prop(into)] placeholder: String,
@@ -38,6 +39,7 @@ pub fn TextInput(
     }
 }
 
+/// Numeric code input for OTP verification (defaults to 6 digits).
 #[component]
 pub fn OtpInput(
     #[prop(into)] value: RwSignal<String>,

@@ -13,6 +13,7 @@ fn format_time(total_seconds: i64) -> String {
     }
 }
 
+/// Circular progress timer showing elapsed/remaining time during a workout.
 #[component]
 pub fn SessionTimer(
     /// Elapsed time in seconds

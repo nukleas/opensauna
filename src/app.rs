@@ -9,6 +9,7 @@ use crate::pages::{
 };
 use crate::state::{provide_auth_state, provide_pending_login, provide_session_tracking_state};
 
+/// Root application component. Sets up routing, global state providers, and session restoration.
 #[component]
 pub fn App() -> impl IntoView {
     // Provide auth state at the app root

@@ -15,10 +15,7 @@ where
     }
 
     match Option::<StringOrInt>::deserialize(deserializer)? {
-        Some(StringOrInt::String(s)) => s
-            .parse::<i32>()
-            .map(Some)
-            .map_err(de::Error::custom),
+        Some(StringOrInt::String(s)) => s.parse::<i32>().map(Some).map_err(de::Error::custom),
         Some(StringOrInt::Int(i)) => Ok(Some(i)),
         None => Ok(None),
     }
@@ -49,7 +46,9 @@ where
 }
 
 /// Deserialize an optional string that may come as a number from the API
-fn deserialize_optional_string_from_number<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+fn deserialize_optional_string_from_number<'de, D>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -88,7 +87,11 @@ pub struct TimeSlot {
     pub slot1: Option<String>,
     pub slot2: Option<String>,
     pub slot3: Option<String>,
-    #[serde(default, alias = "suana_no", deserialize_with = "deserialize_optional_string_from_number")]
+    #[serde(
+        default,
+        alias = "suana_no",
+        deserialize_with = "deserialize_optional_string_from_number"
+    )]
     pub sauna_no: Option<String>,
     pub time_slot: Option<String>,
     #[serde(default, deserialize_with = "deserialize_optional_bool_from_str")]
@@ -113,6 +116,7 @@ pub struct SlotsResponse {
     pub data: Option<SlotsData>,
 }
 
+/// Inner data payload from the showSlots response.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SlotsData {
     pub slots: Option<Vec<TimeSlot>>,
@@ -140,6 +144,7 @@ pub struct BookSessionResponse {
     pub data: Option<BookedSessionData>,
 }
 
+/// IDs returned after a successful booking, needed for cancellation.
 #[derive(Debug, Clone, Deserialize)]
 pub struct BookedSessionData {
     pub session_record_id: Option<String>,
@@ -169,6 +174,7 @@ pub struct SessionType {
 }
 
 impl BookSessionResponse {
+    /// Returns `true` if the booking succeeded (has data, no error).
     pub fn is_success(&self) -> bool {
         self.error.is_none() && self.data.is_some()
     }

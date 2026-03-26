@@ -35,6 +35,7 @@ struct VerifyOtpResponse {
 #[derive(Debug, Clone, serde::Deserialize)]
 struct PendingLoginData(String, String, String); // (email, password, token)
 
+/// OTP code entry page, shown after password login when two-factor auth is enabled.
 #[component]
 pub fn OtpPage() -> impl IntoView {
     let auth = use_auth_state();

@@ -38,6 +38,7 @@ pub struct ApiClient {
     token: Option<String>,
 }
 
+/// Error returned from Tauri IPC calls or API response parsing.
 #[derive(Debug, Clone)]
 pub struct ApiError {
     pub message: String,
@@ -50,22 +51,27 @@ impl std::fmt::Display for ApiError {
 }
 
 impl ApiClient {
+    /// Create a new client with no auth token.
     pub fn new() -> Self {
         Self { token: None }
     }
 
+    /// Create a new client with the given auth token.
     pub fn with_token(token: String) -> Self {
         Self { token: Some(token) }
     }
 
+    /// Set or replace the auth token.
     pub fn set_token(&mut self, token: String) {
         self.token = Some(token);
     }
 
+    /// Remove the auth token (used on logout).
     pub fn clear_token(&mut self) {
         self.token = None;
     }
 
+    /// Returns `true` if the client has an auth token set.
     pub fn has_token(&self) -> bool {
         self.token.is_some()
     }

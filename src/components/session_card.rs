@@ -12,6 +12,7 @@ extern "C" {
     fn log(s: &str);
 }
 
+/// Card displaying a single session (pending or completed) with optional cancel/start actions.
 #[component]
 pub fn SessionCard(
     session: PendingSession,
@@ -171,6 +172,7 @@ pub fn SessionCard(
     }
 }
 
+/// Placeholder shown when a session list has no items.
 #[component]
 pub fn EmptySessionList(#[prop(into)] message: String) -> impl IntoView {
     view! {
