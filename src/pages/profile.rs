@@ -1,5 +1,6 @@
 use crate::components::toast::use_toast;
 use crate::components::{BottomNav, Button, NavItem, PageLoading, TextInput};
+use crate::models::api::{ApiEnvelope, NestedDataEnvelope};
 use crate::models::profile::{CalorieStatsData, GoalsData, ProfileData};
 use crate::state::{handle_invoke_error, use_auth_state};
 use crate::utils::tauri::{invoke, log};
@@ -48,41 +49,22 @@ pub fn ProfilePage() -> impl IntoView {
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    if let Ok(response) =
-                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                    // The HOTWORX `view_profile` endpoint double-wraps the
+                    // payload as `{ data: [{ data: ProfileData }] }`. The
+                    // backend forwards that shape verbatim.
+                    match serde_wasm_bindgen::from_value::<NestedDataEnvelope<ProfileData>>(result)
                     {
-                        log(&format!(
-                            "[Profile] Raw response: {}",
-                            serde_json::to_string(&response)
-                                .unwrap_or_default()
-                                .chars()
-                                .take(500)
-                                .collect::<String>()
-                        ));
-
-                        // API returns data as array: {"data": [{"data": {...profile...}}]}
-                        let profile_data = response.get("data").and_then(|d| {
-                            // Try data[0].data first (actual API format)
-                            d.as_array()
-                                .and_then(|arr| arr.first())
-                                .and_then(|item| item.get("data"))
-                                // Fall back to data as direct object
-                                .or(if d.is_object() { Some(d) } else { None })
-                        });
-
-                        if let Some(data) = profile_data {
-                            match serde_json::from_value::<ProfileData>(data.clone()) {
-                                Ok(p) => {
-                                    log(&format!("[Profile] Parsed profile: {}", p.display_name()));
-                                    profile.set(Some(p));
-                                }
-                                Err(e) => {
-                                    log(&format!("[Profile] Parse error: {}", e));
-                                    error.set(Some("Failed to load profile".to_string()));
-                                }
+                        Ok(env) => {
+                            if let Some(p) = env.first() {
+                                log(&format!("[Profile] Parsed profile: {}", p.display_name()));
+                                profile.set(Some(p));
+                            } else {
+                                log("[Profile] Empty profile data");
+                                error.set(Some("Failed to load profile".to_string()));
                             }
-                        } else {
-                            log("[Profile] No profile data found in response");
+                        }
+                        Err(e) => {
+                            log(&format!("[Profile] Deserialize error: {:?}", e));
                             error.set(Some("Failed to load profile".to_string()));
                         }
                     }
@@ -109,15 +91,11 @@ pub fn ProfilePage() -> impl IntoView {
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    if let Ok(response) =
-                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                    if let Ok(env) =
+                        serde_wasm_bindgen::from_value::<ApiEnvelope<CalorieStatsData>>(result)
                     {
-                        if let Some(data) = response.get("data") {
-                            if let Ok(stats) =
-                                serde_json::from_value::<CalorieStatsData>(data.clone())
-                            {
-                                calorie_stats.set(Some(stats));
-                            }
+                        if let Some(stats) = env.data {
+                            calorie_stats.set(Some(stats));
                         }
                     }
                 }
@@ -140,13 +118,11 @@ pub fn ProfilePage() -> impl IntoView {
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    if let Ok(response) =
-                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                    if let Ok(env) =
+                        serde_wasm_bindgen::from_value::<ApiEnvelope<GoalsData>>(result)
                     {
-                        if let Some(data) = response.get("data") {
-                            if let Ok(g) = serde_json::from_value::<GoalsData>(data.clone()) {
-                                goals.set(Some(g));
-                            }
+                        if let Some(g) = env.data {
+                            goals.set(Some(g));
                         }
                     }
                 }

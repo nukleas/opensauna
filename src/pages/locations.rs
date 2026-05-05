@@ -1,6 +1,6 @@
 use crate::components::toast::use_toast;
 use crate::components::{BottomNav, IconSearch, NavItem, PageLoading};
-use crate::models::location::Location;
+use crate::models::location::{Location, LocationsResponse};
 use crate::state::{handle_invoke_error, use_auth_state};
 use crate::utils::nav::go as navigate_to;
 use crate::utils::tauri::{invoke, log};
@@ -45,36 +45,24 @@ pub fn LocationsPage() -> impl IntoView {
             let promise = invoke("api_get_locations", args);
 
             match JsFuture::from(promise).await {
-                Ok(result) => {
-                    if let Ok(response) =
-                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
-                    {
-                        log("[Locations] Got response");
-                        let locs_json = response
-                            .get("data")
-                            .and_then(|d| d.get("locations"))
-                            .or_else(|| response.get("locations"));
-
-                        if let Some(locs_json) = locs_json {
-                            if let Ok(locs) =
-                                serde_json::from_value::<Vec<Location>>(locs_json.clone())
-                            {
-                                log(&format!("[Locations] Parsed {} locations", locs.len()));
-                                locations.set(locs);
-                            }
-                        }
+                Ok(result) => match serde_wasm_bindgen::from_value::<LocationsResponse>(result) {
+                    Ok(resp) => {
+                        let locs = resp.data.and_then(|d| d.locations).unwrap_or_default();
+                        log(&format!("[Locations] Parsed {} locations", locs.len()));
+                        locations.set(locs);
                     }
-                }
+                    Err(e) => {
+                        log(&format!("[Locations] Parse error: {:?}", e));
+                        error.set(Some("Failed to load locations".to_string()));
+                    }
+                },
                 Err(e) => {
                     log(&format!("[Locations] Error: {:?}", e));
                     if handle_invoke_error(&e, auth, toast).await {
                         loading.set(false);
                         return;
                     }
-                    let err_str = js_sys::JSON::stringify(&e)
-                        .map(|s| s.as_string().unwrap_or_default())
-                        .unwrap_or_else(|_| format!("{:?}", e));
-                    error.set(Some(format!("Failed to load locations: {}", err_str)));
+                    error.set(Some("Failed to load locations".to_string()));
                 }
             }
 

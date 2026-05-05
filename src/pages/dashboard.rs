@@ -3,13 +3,27 @@ use crate::components::{
     ActiveSessionView, BottomNav, Button, EmptySessionList, IconLogOut, NavItem, PageLoading,
     SessionCard,
 };
+use crate::models::api::ApiEnvelope;
 use crate::models::dashboard::{DashboardData, PendingSession};
 use crate::state::{handle_invoke_error, use_auth_state, use_session_tracking_state};
 use crate::utils::dates::today as get_today_date;
 use crate::utils::nav::go as navigate_to;
 use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
+use serde::Deserialize;
 use wasm_bindgen_futures::JsFuture;
+
+/// Inner shape of `api_get_upcoming_sessions` — `{ data: { upcoming: [...] } }`.
+#[derive(Debug, Clone, Deserialize)]
+struct UpcomingEnvelope {
+    data: UpcomingInner,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct UpcomingInner {
+    #[serde(default)]
+    upcoming: Vec<PendingSession>,
+}
 
 /// Home screen showing today's sessions, summary stats, and an active session banner.
 #[component]
@@ -89,42 +103,22 @@ pub fn DashboardPage() -> impl IntoView {
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    // Parse the response - it's a DashboardResponse with data field
-                    match serde_wasm_bindgen::from_value::<serde_json::Value>(result) {
-                        Ok(response) => {
-                            log("[Dashboard] Got response");
-
-                            if let Some(data) = response.get("data") {
-                                match serde_json::from_value::<DashboardData>(data.clone()) {
-                                    Ok(dashboard) => {
-                                        log(&format!(
-                                            "[Dashboard] Parsed: sessions={:?}, summary={:?}",
-                                            dashboard
-                                                .todays_pending_sessions
-                                                .as_ref()
-                                                .map(|s| s.len()),
-                                            dashboard.summary
-                                        ));
-                                        dashboard_data.set(Some(dashboard));
-                                    }
-                                    Err(e) => {
-                                        log(&format!(
-                                            "[Dashboard] Parse DashboardData error: {}",
-                                            e
-                                        ));
-                                        error.set(Some(
-                                            "Failed to load dashboard. Pull down to refresh."
-                                                .to_string(),
-                                        ));
-                                    }
-                                }
-                            } else {
-                                log("[Dashboard] No 'data' field in response");
+                    match serde_wasm_bindgen::from_value::<ApiEnvelope<DashboardData>>(result) {
+                        Ok(env) => match env.data {
+                            Some(dashboard) => {
+                                log(&format!(
+                                    "[Dashboard] Parsed: sessions={:?}",
+                                    dashboard.todays_pending_sessions.as_ref().map(|s| s.len())
+                                ));
+                                dashboard_data.set(Some(dashboard));
+                            }
+                            None => {
+                                log("[Dashboard] No `data` field in response");
                                 error.set(Some(
                                     "Failed to load dashboard. Pull down to refresh.".to_string(),
                                 ));
                             }
-                        }
+                        },
                         Err(e) => {
                             log(&format!("[Dashboard] Deserialize error: {:?}", e));
                             error.set(Some(
@@ -159,23 +153,12 @@ pub fn DashboardPage() -> impl IntoView {
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    if let Ok(response) =
-                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
-                    {
-                        // Try to parse upcoming sessions from response
-                        if let Some(data) = response.get("data") {
-                            if let Some(upcoming) = data.get("upcoming") {
-                                if let Ok(sessions) =
-                                    serde_json::from_value::<Vec<PendingSession>>(upcoming.clone())
-                                {
-                                    log(&format!(
-                                        "[Dashboard] Got {} upcoming sessions",
-                                        sessions.len()
-                                    ));
-                                    all_upcoming_sessions.set(sessions);
-                                }
-                            }
-                        }
+                    if let Ok(env) = serde_wasm_bindgen::from_value::<UpcomingEnvelope>(result) {
+                        log(&format!(
+                            "[Dashboard] Got {} upcoming sessions",
+                            env.data.upcoming.len()
+                        ));
+                        all_upcoming_sessions.set(env.data.upcoming);
                     }
                 }
                 Err(e) => {

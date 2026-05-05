@@ -1,13 +1,21 @@
 use crate::components::toast::use_toast;
 use crate::components::{BottomNav, Button, IconChevronLeft, NavItem, PageLoading};
-use crate::models::booking::{SessionType, TimeSlot};
+use crate::models::booking::{BookSessionResponse, SessionType, TimeSlot};
 use crate::state::{handle_invoke_error, use_auth_state};
 use crate::utils::dates::{max_booking_date as get_max_date, today as get_today_date};
 use crate::utils::nav::go as navigate_to;
 use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
+use serde::Deserialize;
 use wasm_bindgen_futures::JsFuture;
+
+/// `api_get_session_types` returns `{ list: [SessionType] }`.
+#[derive(Debug, Clone, Deserialize)]
+struct SessionTypesResponse {
+    #[serde(default)]
+    list: Vec<SessionType>,
+}
 
 /// Session booking flow: date picker, session type selector, and time slot grid.
 #[component]
@@ -64,22 +72,13 @@ pub fn BookingPage() -> impl IntoView {
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    if let Ok(response) =
-                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                    if let Ok(resp) = serde_wasm_bindgen::from_value::<SessionTypesResponse>(result)
                     {
                         log(&format!(
-                            "[Booking] Got session types response: {:?}",
-                            response
+                            "[Booking] Parsed {} session types",
+                            resp.list.len()
                         ));
-                        // API returns { list: [{slot: "HOT YOGA", value: "HOT YOGA"}, ...] }
-                        if let Some(types_json) = response.get("list") {
-                            if let Ok(types) =
-                                serde_json::from_value::<Vec<SessionType>>(types_json.clone())
-                            {
-                                log(&format!("[Booking] Parsed {} session types", types.len()));
-                                session_types.set(types);
-                            }
-                        }
+                        session_types.set(resp.list);
                     }
                 }
                 Err(e) => {
@@ -89,10 +88,7 @@ pub fn BookingPage() -> impl IntoView {
                         loading.set(false);
                         return;
                     }
-                    let err_str = js_sys::JSON::stringify(&e)
-                        .map(|s| s.as_string().unwrap_or_default())
-                        .unwrap_or_else(|_| format!("{:?}", e));
-                    error.set(Some(format!("Failed to load session types: {}", err_str)));
+                    error.set(Some("Failed to load session types".to_string()));
                 }
             }
 
@@ -140,37 +136,9 @@ pub fn BookingPage() -> impl IntoView {
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    if let Ok(response) =
-                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
-                    {
-                        log(&format!("[Booking] Got slots response: {:?}", response));
-
-                        // API returns slots directly as an array
-                        if response.is_array() {
-                            if let Ok(slots) =
-                                serde_json::from_value::<Vec<TimeSlot>>(response.clone())
-                            {
-                                log(&format!(
-                                    "[Booking] Parsed {} slots from array",
-                                    slots.len()
-                                ));
-                                time_slots.set(slots);
-                            }
-                        }
-                        // Or nested under data.slots
-                        else if let Some(data) = response.get("data") {
-                            if let Some(slots_json) = data.get("slots") {
-                                if let Ok(slots) =
-                                    serde_json::from_value::<Vec<TimeSlot>>(slots_json.clone())
-                                {
-                                    log(&format!(
-                                        "[Booking] Parsed {} slots from data.slots",
-                                        slots.len()
-                                    ));
-                                    time_slots.set(slots);
-                                }
-                            }
-                        }
+                    if let Ok(slots) = serde_wasm_bindgen::from_value::<Vec<TimeSlot>>(result) {
+                        log(&format!("[Booking] Parsed {} slots", slots.len()));
+                        time_slots.set(slots);
                     }
                 }
                 Err(e) => {
@@ -179,26 +147,7 @@ pub fn BookingPage() -> impl IntoView {
                         loading.set(false);
                         return;
                     }
-                    let err_str = js_sys::JSON::stringify(&e)
-                        .map(|s| s.as_string().unwrap_or_default())
-                        .unwrap_or_else(|_| format!("{:?}", e));
-                    // Try to extract the actual error message from the API response
-                    let display_err = if err_str.contains("\"error\":") {
-                        // Parse out the error field from JSON-like string
-                        if let Some(start) = err_str.find("\"error\":\"") {
-                            let start = start + 9;
-                            if let Some(end) = err_str[start..].find("\"") {
-                                err_str[start..start + end].to_string()
-                            } else {
-                                err_str.clone()
-                            }
-                        } else {
-                            err_str.clone()
-                        }
-                    } else {
-                        err_str
-                    };
-                    error.set(Some(display_err));
+                    error.set(Some("Failed to load time slots".to_string()));
                 }
             }
 
@@ -256,16 +205,9 @@ pub fn BookingPage() -> impl IntoView {
                 match JsFuture::from(promise).await {
                     Ok(result) => {
                         if let Ok(response) =
-                            serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                            serde_wasm_bindgen::from_value::<BookSessionResponse>(result)
                         {
-                            log(&format!("[Booking] Book response: {:?}", response));
-                            if response.get("error").is_some()
-                                && !response.get("error").unwrap().is_null()
-                            {
-                                let err = response
-                                    .get("error")
-                                    .and_then(|e| e.as_str())
-                                    .unwrap_or("Unknown error");
+                            if let Some(err) = response.error.filter(|e| !e.is_empty()) {
                                 failed.push(format!("{}: {}", time_slot, err));
                             }
                         }

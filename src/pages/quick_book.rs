@@ -1,6 +1,6 @@
 use crate::components::toast::use_toast;
 use crate::components::{BottomNav, Button, IconChevronLeft, NavItem, PageLoading};
-use crate::models::booking::TimeSlot;
+use crate::models::booking::{BookSessionResponse, TimeSlot};
 use crate::state::{handle_invoke_error, use_auth_state};
 use crate::utils::dates::{max_booking_date as get_max_date, today as get_today_date};
 use crate::utils::nav::go as navigate_to;
@@ -107,28 +107,9 @@ pub fn QuickBookPage() -> impl IntoView {
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    if let Ok(response) =
-                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
-                    {
-                        // API returns slots directly as an array
-                        if response.is_array() {
-                            if let Ok(slots) =
-                                serde_json::from_value::<Vec<TimeSlot>>(response.clone())
-                            {
-                                log(&format!("[QuickBook] Got {} slots", slots.len()));
-                                time_slots.set(slots);
-                            }
-                        }
-                        // Or nested under data.slots
-                        else if let Some(data) = response.get("data") {
-                            if let Some(slots_json) = data.get("slots") {
-                                if let Ok(slots) =
-                                    serde_json::from_value::<Vec<TimeSlot>>(slots_json.clone())
-                                {
-                                    time_slots.set(slots);
-                                }
-                            }
-                        }
+                    if let Ok(slots) = serde_wasm_bindgen::from_value::<Vec<TimeSlot>>(result) {
+                        log(&format!("[QuickBook] Got {} slots", slots.len()));
+                        time_slots.set(slots);
                     }
                 }
                 Err(e) => {
@@ -137,10 +118,7 @@ pub fn QuickBookPage() -> impl IntoView {
                         slots_loading.set(false);
                         return;
                     }
-                    let err_str = js_sys::JSON::stringify(&e)
-                        .map(|s| s.as_string().unwrap_or_default())
-                        .unwrap_or_else(|_| format!("{:?}", e));
-                    error.set(Some(format!("Failed to load slots: {}", err_str)));
+                    error.set(Some("Failed to load time slots".to_string()));
                 }
             }
 
@@ -202,15 +180,9 @@ pub fn QuickBookPage() -> impl IntoView {
                 match JsFuture::from(promise).await {
                     Ok(result) => {
                         if let Ok(response) =
-                            serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                            serde_wasm_bindgen::from_value::<BookSessionResponse>(result)
                         {
-                            if response.get("error").is_some()
-                                && !response.get("error").unwrap().is_null()
-                            {
-                                let err = response
-                                    .get("error")
-                                    .and_then(|e| e.as_str())
-                                    .unwrap_or("Unknown error");
+                            if let Some(err) = response.error.filter(|e| !e.is_empty()) {
                                 failed.push(format!("{}: {}", time_slot, err));
                             }
                         }

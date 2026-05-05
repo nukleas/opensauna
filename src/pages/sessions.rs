@@ -1,11 +1,32 @@
 use crate::components::toast::use_toast;
 use crate::components::{BottomNav, EmptySessionList, NavItem, PageLoading, SessionCard};
-use crate::models::dashboard::PendingSession;
+use crate::models::api::ApiEnvelope;
+use crate::models::dashboard::{DashboardData, PendingSession};
 use crate::state::{handle_invoke_error, use_auth_state};
 use crate::utils::dates::today as get_today_date;
 use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
+use serde::Deserialize;
 use wasm_bindgen_futures::JsFuture;
+
+/// `{ data: { upcoming: [...] } }` from `api_get_upcoming_sessions`.
+#[derive(Debug, Clone, Deserialize)]
+struct UpcomingEnvelope {
+    data: UpcomingInner,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct UpcomingInner {
+    #[serde(default)]
+    upcoming: Vec<PendingSession>,
+}
+
+/// Activity history page is `{ activities: [...], no_of_pages: N, ... }`.
+#[derive(Debug, Clone, Deserialize)]
+struct ActivityHistoryResponse {
+    #[serde(default)]
+    activities: Vec<serde_json::Value>,
+}
 
 /// Activity history page with upcoming and completed sessions, filterable by date range.
 #[component]
@@ -52,25 +73,19 @@ pub fn SessionsPage() -> impl IntoView {
             // Fetch all upcoming sessions
             let upcoming_promise = invoke("api_get_upcoming_sessions", empty_args);
 
-            // Process dashboard response
+            // Today's completed sessions come from the dashboard endpoint.
             match JsFuture::from(dashboard_promise).await {
                 Ok(result) => {
-                    if let Ok(response) =
-                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                    if let Ok(env) =
+                        serde_wasm_bindgen::from_value::<ApiEnvelope<DashboardData>>(result)
                     {
-                        log("[Sessions] Got dashboard response");
-                        if let Some(data) = response.get("data") {
-                            if let Some(completed_json) = data.get("todays_completed_sessions") {
-                                if let Ok(completed) = serde_json::from_value::<Vec<PendingSession>>(
-                                    completed_json.clone(),
-                                ) {
-                                    log(&format!(
-                                        "[Sessions] {} completed sessions today",
-                                        completed.len()
-                                    ));
-                                    completed_sessions.set(completed);
-                                }
-                            }
+                        if let Some(completed) = env.data.and_then(|d| d.todays_completed_sessions)
+                        {
+                            log(&format!(
+                                "[Sessions] {} completed sessions today",
+                                completed.len()
+                            ));
+                            completed_sessions.set(completed);
                         }
                     }
                 }
@@ -83,50 +98,34 @@ pub fn SessionsPage() -> impl IntoView {
                 }
             }
 
-            // Process upcoming sessions
+            // Upcoming bookings across the next few days.
             match JsFuture::from(upcoming_promise).await {
                 Ok(result) => {
-                    if let Ok(response) =
-                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
-                    {
-                        if let Some(data) = response.get("data") {
-                            if let Some(upcoming_json) = data.get("upcoming") {
-                                if let Ok(upcoming) = serde_json::from_value::<Vec<PendingSession>>(
-                                    upcoming_json.clone(),
-                                ) {
-                                    log(&format!(
-                                        "[Sessions] {} upcoming sessions",
-                                        upcoming.len()
-                                    ));
-                                    pending_sessions.set(upcoming);
-                                }
-                            }
-                        }
-                        // Fallback: if no upcoming in response, check for today's pending from earlier
-                        if pending_sessions.get_untracked().is_empty() {
-                            let fallback_args = serde_wasm_bindgen::to_value(
-                                &serde_json::json!({ "currentDate": get_today_date() }),
-                            )
-                            .unwrap();
-                            if let Ok(result) =
-                                JsFuture::from(invoke("api_get_dashboard", fallback_args)).await
+                    if let Ok(env) = serde_wasm_bindgen::from_value::<UpcomingEnvelope>(result) {
+                        log(&format!(
+                            "[Sessions] {} upcoming sessions",
+                            env.data.upcoming.len()
+                        ));
+                        pending_sessions.set(env.data.upcoming);
+                    }
+
+                    // Fallback for empty multi-day list — pull today's
+                    // pending from the dashboard.
+                    if pending_sessions.get_untracked().is_empty() {
+                        let fallback_args = serde_wasm_bindgen::to_value(
+                            &serde_json::json!({ "currentDate": get_today_date() }),
+                        )
+                        .unwrap();
+                        if let Ok(result) =
+                            JsFuture::from(invoke("api_get_dashboard", fallback_args)).await
+                        {
+                            if let Ok(env) =
+                                serde_wasm_bindgen::from_value::<ApiEnvelope<DashboardData>>(result)
                             {
-                                if let Ok(resp) =
-                                    serde_wasm_bindgen::from_value::<serde_json::Value>(result)
+                                if let Some(pending) =
+                                    env.data.and_then(|d| d.todays_pending_sessions)
                                 {
-                                    if let Some(data) = resp.get("data") {
-                                        if let Some(pending_json) =
-                                            data.get("todays_pending_sessions")
-                                        {
-                                            if let Ok(pending) =
-                                                serde_json::from_value::<Vec<PendingSession>>(
-                                                    pending_json.clone(),
-                                                )
-                                            {
-                                                pending_sessions.set(pending);
-                                            }
-                                        }
-                                    }
+                                    pending_sessions.set(pending);
                                 }
                             }
                         }
@@ -161,36 +160,16 @@ pub fn SessionsPage() -> impl IntoView {
 
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    if let Ok(response) =
-                        serde_wasm_bindgen::from_value::<serde_json::Value>(result)
-                    {
-                        log(&format!(
-                            "[Sessions] Activity history keys: {:?}",
-                            response.as_object().map(|m| m.keys().collect::<Vec<_>>())
-                        ));
-
-                        // API returns: { "activities": [...], "ninety_days_activities": [...], "no_of_pages": N }
-                        let activities = response
-                            .get("activities")
-                            .and_then(|v| v.as_array())
-                            // Fallback: try "data" key or "data" as array
-                            .or_else(|| response.get("data").and_then(|d| d.as_array()));
-
-                        if let Some(activities) = activities {
+                    match serde_wasm_bindgen::from_value::<ActivityHistoryResponse>(result) {
+                        Ok(resp) => {
                             log(&format!(
                                 "[Sessions] {} activity entries from API",
-                                activities.len()
+                                resp.activities.len()
                             ));
-                            session_history.set(activities.clone());
-                        } else {
-                            log(&format!(
-                                "[Sessions] No activities found. Response: {}",
-                                serde_json::to_string(&response)
-                                    .unwrap_or_default()
-                                    .chars()
-                                    .take(500)
-                                    .collect::<String>()
-                            ));
+                            session_history.set(resp.activities);
+                        }
+                        Err(e) => {
+                            log(&format!("[Sessions] Activity parse error: {:?}", e));
                         }
                     }
                 }

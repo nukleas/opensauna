@@ -3,6 +3,8 @@
 //! Many API fields arrive as inconsistent types (numbers as strings, bools as ints, etc.),
 //! so most models use custom deserializers to normalize the data.
 
+/// Generic IPC envelope shapes (`{ data: T }` etc.).
+pub mod api;
 /// Login, OTP, and authentication response types.
 pub mod auth;
 /// Time slots, session booking, and cancellation types.
