@@ -1,6 +1,13 @@
 use crate::api::client::{clear_auth_token, get_auth_token, store_auth_token, ApiClient};
+use crate::components::toast::ToastState;
 use crate::models::auth::UserProfile;
 use leptos::prelude::*;
+use wasm_bindgen::JsValue;
+
+/// Sentinel that the Tauri backend prepends to auth-failure error strings
+/// (HTTP 401/403 or missing token). Must stay in sync with `AUTH_EXPIRED_PREFIX`
+/// in `src-tauri/src/lib.rs`.
+const AUTH_EXPIRED_MARKER: &str = "AUTH_EXPIRED";
 
 /// Global authentication state
 #[derive(Clone, Copy)]
@@ -89,6 +96,36 @@ impl Default for AuthState {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Convert a Tauri `invoke` rejection into a string. Tauri commands that return
+/// `Err(String)` reject with that string as a JS primitive, but we fall back
+/// to a debug repr for non-string rejections.
+pub fn invoke_error_string(err: &JsValue) -> String {
+    err.as_string().unwrap_or_else(|| format!("{:?}", err))
+}
+
+/// Returns true iff the error string came from the backend's auth sentinel.
+pub fn is_auth_expired_error(err: &str) -> bool {
+    err.contains(AUTH_EXPIRED_MARKER)
+}
+
+/// Inspect a Tauri `invoke` rejection. If it indicates the auth token is no
+/// longer valid, clear the session, show a toast, and return `true`. The
+/// `<Show>` guards in `app.rs` will then redirect to `/login`. Returns `false`
+/// for ordinary errors so the caller can render its usual error state.
+pub async fn handle_invoke_error(err: &JsValue, auth: AuthState, toast: ToastState) -> bool {
+    let err_str = invoke_error_string(err);
+    if !is_auth_expired_error(&err_str) {
+        return false;
+    }
+    // Already logged out by a sibling request — don't double-toast.
+    if auth.token.get_untracked().is_none() {
+        return true;
+    }
+    auth.logout().await;
+    toast.error("Session expired — please log in again");
+    true
 }
 
 /// Provide AuthState context at the app root

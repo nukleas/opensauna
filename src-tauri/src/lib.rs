@@ -10,6 +10,11 @@ use tauri_plugin_store::StoreExt;
 
 const BASE_URL: &str = "https://sailposapi.hotworx.net/api/v1";
 
+/// Sentinel prefix attached to error strings that indicate the user's auth
+/// token is missing or no longer accepted by the server. The frontend matches
+/// on this prefix to trigger a logout + redirect.
+const AUTH_EXPIRED_PREFIX: &str = "AUTH_EXPIRED";
+
 /// Derive an encryption key from the device ID (deterministic per-device)
 fn derive_key(device_id: &str) -> [u8; 32] {
     let mut hasher = Sha256::new();
@@ -125,6 +130,12 @@ async fn api_post_form(
     println!("[API] Response status: {}", status);
 
     if !status.is_success() {
+        if status.as_u16() == 401 || status.as_u16() == 403 {
+            return Err(format!(
+                "{}: HTTP {}: {}",
+                AUTH_EXPIRED_PREFIX, status, text
+            ));
+        }
         return Err(format!("HTTP {}: {}", status, text));
     }
 
@@ -167,6 +178,12 @@ async fn api_get(
     println!("[API] Response status: {}", status);
 
     if !status.is_success() {
+        if status.as_u16() == 401 || status.as_u16() == 403 {
+            return Err(format!(
+                "{}: HTTP {}: {}",
+                AUTH_EXPIRED_PREFIX, status, text
+            ));
+        }
         return Err(format!("HTTP {}: {}", status, text));
     }
 
@@ -253,7 +270,7 @@ async fn api_get_dashboard(
     // Get stored auth token
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
 
     // Get device ID
     let device_id = get_device_id(app).await?;
@@ -279,7 +296,7 @@ async fn api_get_dashboard(
 async fn api_get_locations(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let response_text = api_get("booking/getBookingLocations_v2", Some(&token), &device_id).await?;
@@ -302,7 +319,7 @@ async fn api_get_session_types(
 ) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let mut params = HashMap::new();
@@ -337,7 +354,7 @@ async fn api_show_slots(
 ) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let mut params = HashMap::new();
@@ -377,7 +394,7 @@ async fn api_book_session(
 ) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let mut params = HashMap::new();
@@ -408,7 +425,7 @@ async fn api_delete_session(
 ) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let mut params = HashMap::new();
@@ -636,7 +653,7 @@ async fn api_get_activity_history(
 ) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     // Build query string
@@ -676,7 +693,7 @@ fn get_date_with_offset(days: i64) -> String {
 async fn api_get_upcoming_sessions(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let mut all_upcoming = Vec::new();
@@ -720,7 +737,7 @@ async fn api_get_upcoming_sessions(app: tauri::AppHandle) -> Result<serde_json::
 async fn api_view_profile(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let params = HashMap::new();
@@ -750,7 +767,7 @@ async fn api_update_profile(
 ) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let mut params = HashMap::new();
@@ -781,7 +798,7 @@ async fn api_update_profile(
 async fn api_get_summary(app: tauri::AppHandle, date: String) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let mut params = HashMap::new();
@@ -804,7 +821,7 @@ async fn api_get_summary(app: tauri::AppHandle, date: String) -> Result<serde_js
 async fn api_get_thirty_day_summary(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let params = HashMap::new();
@@ -830,7 +847,7 @@ async fn api_get_thirty_day_summary(app: tauri::AppHandle) -> Result<serde_json:
 async fn api_get_ninety_day_summary(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let params = HashMap::new();
@@ -856,7 +873,7 @@ async fn api_get_ninety_day_summary(app: tauri::AppHandle) -> Result<serde_json:
 async fn api_get_calorie_stats(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let params = HashMap::new();
@@ -884,7 +901,7 @@ async fn api_get_calorie_stats(app: tauri::AppHandle) -> Result<serde_json::Valu
 async fn api_view_goals(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let params = HashMap::new();
@@ -911,7 +928,7 @@ async fn api_update_goals(
 ) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let mut params = HashMap::new();
@@ -940,7 +957,7 @@ async fn api_update_goals(
 async fn api_get_weight(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let params = HashMap::new();
@@ -964,7 +981,7 @@ async fn api_set_weight(
 ) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let mut params = HashMap::new();
@@ -1067,7 +1084,7 @@ async fn api_checkin_session(
 ) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let mut params = HashMap::new();
@@ -1101,7 +1118,7 @@ async fn api_complete_session(
 ) -> Result<serde_json::Value, String> {
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| "Not authenticated".to_string())?;
+        .ok_or_else(|| format!("{}: Not authenticated", AUTH_EXPIRED_PREFIX))?;
     let device_id = get_device_id(app).await?;
 
     let mut params = HashMap::new();

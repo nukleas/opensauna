@@ -1,9 +1,10 @@
+use crate::components::toast::use_toast;
 use crate::components::{
     ActiveSessionView, BottomNav, Button, EmptySessionList, IconLogOut, NavItem, PageLoading,
     SessionCard,
 };
 use crate::models::dashboard::{DashboardData, PendingSession};
-use crate::state::{use_auth_state, use_session_tracking_state};
+use crate::state::{handle_invoke_error, use_auth_state, use_session_tracking_state};
 use leptos::prelude::*;
 use leptos::web_sys;
 use wasm_bindgen::prelude::*;
@@ -28,6 +29,7 @@ fn navigate_to(path: &str) {
 #[component]
 pub fn DashboardPage() -> impl IntoView {
     let auth = use_auth_state();
+    let toast = use_toast();
     let session_state = use_session_tracking_state();
 
     let dashboard_data: RwSignal<Option<DashboardData>> = RwSignal::new(None);
@@ -147,6 +149,10 @@ pub fn DashboardPage() -> impl IntoView {
                 }
                 Err(e) => {
                     log(&format!("[Dashboard] Error: {:?}", e));
+                    if handle_invoke_error(&e, auth, toast).await {
+                        loading.set(false);
+                        return;
+                    }
                     error.set(Some(
                         "Failed to load dashboard. Pull down to refresh.".to_string(),
                     ));
@@ -191,6 +197,7 @@ pub fn DashboardPage() -> impl IntoView {
                         "[Dashboard] Upcoming sessions error (non-fatal): {:?}",
                         e
                     ));
+                    let _ = handle_invoke_error(&e, auth, toast).await;
                 }
             }
         });

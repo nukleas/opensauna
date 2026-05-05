@@ -1,5 +1,7 @@
+use crate::components::toast::use_toast;
 use crate::components::{BottomNav, Button, IconChevronLeft, NavItem, PageLoading};
 use crate::models::booking::{SessionType, TimeSlot};
+use crate::state::{handle_invoke_error, use_auth_state};
 use leptos::prelude::*;
 use leptos::web_sys;
 use leptos_router::hooks::use_params_map;
@@ -24,6 +26,8 @@ fn navigate_to(path: &str) {
 /// Session booking flow: date picker, session type selector, and time slot grid.
 #[component]
 pub fn BookingPage() -> impl IntoView {
+    let auth = use_auth_state();
+    let toast = use_toast();
     let params = use_params_map();
 
     let location_id = move || params.get().get("location_id").unwrap_or_default();
@@ -94,6 +98,11 @@ pub fn BookingPage() -> impl IntoView {
                 }
                 Err(e) => {
                     log(&format!("[Booking] Error fetching session types: {:?}", e));
+                    if handle_invoke_error(&e, auth, toast).await {
+                        session_types_loading.set(false);
+                        loading.set(false);
+                        return;
+                    }
                     let err_str = js_sys::JSON::stringify(&e)
                         .map(|s| s.as_string().unwrap_or_default())
                         .unwrap_or_else(|_| format!("{:?}", e));
@@ -180,6 +189,10 @@ pub fn BookingPage() -> impl IntoView {
                 }
                 Err(e) => {
                     log(&format!("[Booking] Error: {:?}", e));
+                    if handle_invoke_error(&e, auth, toast).await {
+                        loading.set(false);
+                        return;
+                    }
                     let err_str = js_sys::JSON::stringify(&e)
                         .map(|s| s.as_string().unwrap_or_default())
                         .unwrap_or_else(|_| format!("{:?}", e));
@@ -273,6 +286,10 @@ pub fn BookingPage() -> impl IntoView {
                     }
                     Err(e) => {
                         log(&format!("[Booking] Error: {:?}", e));
+                        if handle_invoke_error(&e, auth, toast).await {
+                            booking_loading.set(false);
+                            return;
+                        }
                         failed.push(time_slot.clone());
                     }
                 }

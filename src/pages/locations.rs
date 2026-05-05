@@ -1,5 +1,7 @@
+use crate::components::toast::use_toast;
 use crate::components::{BottomNav, IconSearch, NavItem, PageLoading};
 use crate::models::location::Location;
+use crate::state::{handle_invoke_error, use_auth_state};
 use leptos::prelude::*;
 use leptos::web_sys;
 use wasm_bindgen::prelude::*;
@@ -23,6 +25,8 @@ fn navigate_to(path: &str) {
 /// Studio location picker — lists available and frequent locations, then navigates to booking.
 #[component]
 pub fn LocationsPage() -> impl IntoView {
+    let auth = use_auth_state();
+    let toast = use_toast();
     let locations: RwSignal<Vec<Location>> = RwSignal::new(Vec::new());
     let loading = RwSignal::new(true);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
@@ -79,6 +83,10 @@ pub fn LocationsPage() -> impl IntoView {
                 }
                 Err(e) => {
                     log(&format!("[Locations] Error: {:?}", e));
+                    if handle_invoke_error(&e, auth, toast).await {
+                        loading.set(false);
+                        return;
+                    }
                     let err_str = js_sys::JSON::stringify(&e)
                         .map(|s| s.as_string().unwrap_or_default())
                         .unwrap_or_else(|_| format!("{:?}", e));

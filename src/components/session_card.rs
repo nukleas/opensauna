@@ -1,4 +1,6 @@
+use crate::components::toast::use_toast;
 use crate::models::dashboard::PendingSession;
+use crate::state::{handle_invoke_error, use_auth_state};
 use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
@@ -21,6 +23,8 @@ pub fn SessionCard(
     #[prop(optional)] on_cancelled: Option<WriteSignal<Option<String>>>,
     #[prop(optional)] on_start: Option<WriteSignal<Option<PendingSession>>>,
 ) -> impl IntoView {
+    let auth = use_auth_state();
+    let toast = use_toast();
     // Clone session for the start button callback
     let session_for_start = session.clone();
     let confirming = RwSignal::new(false);
@@ -103,6 +107,11 @@ pub fn SessionCard(
                                                         }
                                                         Err(e) => {
                                                             log(&format!("[SessionCard] Cancel error: {:?}", e));
+                                                            if handle_invoke_error(&e, auth, toast).await {
+                                                                cancelling.set(false);
+                                                                confirming.set(false);
+                                                                return;
+                                                            }
                                                             error_msg.set(Some("Failed to cancel session.".to_string()));
                                                             cancelling.set(false);
                                                             confirming.set(false);

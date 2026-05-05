@@ -1,5 +1,7 @@
+use crate::components::toast::use_toast;
 use crate::components::{BottomNav, Button, NavItem, PageLoading, TextInput};
 use crate::models::profile::{CalorieStatsData, GoalsData, ProfileData};
+use crate::state::{handle_invoke_error, use_auth_state};
 use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
@@ -16,6 +18,8 @@ extern "C" {
 /// Profile page with user info, calorie stats, goals management, and logout.
 #[component]
 pub fn ProfilePage() -> impl IntoView {
+    let auth = use_auth_state();
+    let toast = use_toast();
     let profile: RwSignal<Option<ProfileData>> = RwSignal::new(None);
     let calorie_stats: RwSignal<Option<CalorieStatsData>> = RwSignal::new(None);
     let goals: RwSignal<Option<GoalsData>> = RwSignal::new(None);
@@ -94,6 +98,10 @@ pub fn ProfilePage() -> impl IntoView {
                 }
                 Err(e) => {
                     log(&format!("[Profile] Error: {:?}", e));
+                    if handle_invoke_error(&e, auth, toast).await {
+                        loading.set(false);
+                        return;
+                    }
                     error.set(Some("Failed to load profile".to_string()));
                 }
             }
@@ -127,6 +135,7 @@ pub fn ProfilePage() -> impl IntoView {
                         "[Profile] Calorie stats error (non-fatal): {:?}",
                         e
                     ));
+                    let _ = handle_invoke_error(&e, auth, toast).await;
                 }
             }
         });
@@ -152,6 +161,7 @@ pub fn ProfilePage() -> impl IntoView {
                 }
                 Err(e) => {
                     log(&format!("[Profile] Goals error (non-fatal): {:?}", e));
+                    let _ = handle_invoke_error(&e, auth, toast).await;
                 }
             }
         });
@@ -218,6 +228,10 @@ pub fn ProfilePage() -> impl IntoView {
                 }
                 Err(e) => {
                     log(&format!("[Profile] Save error: {:?}", e));
+                    if handle_invoke_error(&e, auth, toast).await {
+                        saving.set(false);
+                        return;
+                    }
                     save_message.set(Some("Failed to update profile".to_string()));
                 }
             }
@@ -275,6 +289,10 @@ pub fn ProfilePage() -> impl IntoView {
                 }
                 Err(e) => {
                     log(&format!("[Profile] Save goals error: {:?}", e));
+                    if handle_invoke_error(&e, auth, toast).await {
+                        saving.set(false);
+                        return;
+                    }
                     save_message.set(Some("Failed to update goals".to_string()));
                 }
             }

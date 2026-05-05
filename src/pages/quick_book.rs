@@ -1,5 +1,7 @@
+use crate::components::toast::use_toast;
 use crate::components::{BottomNav, Button, IconChevronLeft, NavItem, PageLoading};
 use crate::models::booking::TimeSlot;
+use crate::state::{handle_invoke_error, use_auth_state};
 use leptos::prelude::*;
 use leptos::web_sys;
 use wasm_bindgen::prelude::*;
@@ -23,6 +25,8 @@ fn navigate_to(path: &str) {
 /// One-tap rebooking using saved location and session type preferences.
 #[component]
 pub fn QuickBookPage() -> impl IntoView {
+    let auth = use_auth_state();
+    let toast = use_toast();
     // Preferences
     let location: RwSignal<Option<(String, String)>> = RwSignal::new(None);
     let session_type: RwSignal<Option<(String, String)>> = RwSignal::new(None);
@@ -143,6 +147,10 @@ pub fn QuickBookPage() -> impl IntoView {
                 }
                 Err(e) => {
                     log(&format!("[QuickBook] Slots error: {:?}", e));
+                    if handle_invoke_error(&e, auth, toast).await {
+                        slots_loading.set(false);
+                        return;
+                    }
                     let err_str = js_sys::JSON::stringify(&e)
                         .map(|s| s.as_string().unwrap_or_default())
                         .unwrap_or_else(|_| format!("{:?}", e));
@@ -221,7 +229,11 @@ pub fn QuickBookPage() -> impl IntoView {
                             }
                         }
                     }
-                    Err(_) => {
+                    Err(e) => {
+                        if handle_invoke_error(&e, auth, toast).await {
+                            booking_loading.set(false);
+                            return;
+                        }
                         failed.push(time_slot.clone());
                     }
                 }

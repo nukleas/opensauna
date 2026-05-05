@@ -1,5 +1,7 @@
+use crate::components::toast::use_toast;
 use crate::components::{BottomNav, EmptySessionList, NavItem, PageLoading, SessionCard};
 use crate::models::dashboard::PendingSession;
+use crate::state::{handle_invoke_error, use_auth_state};
 use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
@@ -16,6 +18,8 @@ extern "C" {
 /// Activity history page with upcoming and completed sessions, filterable by date range.
 #[component]
 pub fn SessionsPage() -> impl IntoView {
+    let auth = use_auth_state();
+    let toast = use_toast();
     let pending_sessions: RwSignal<Vec<PendingSession>> = RwSignal::new(Vec::new());
     let completed_sessions: RwSignal<Vec<PendingSession>> = RwSignal::new(Vec::new());
     let session_history: RwSignal<Vec<serde_json::Value>> = RwSignal::new(Vec::new());
@@ -80,6 +84,10 @@ pub fn SessionsPage() -> impl IntoView {
                 }
                 Err(e) => {
                     log(&format!("[Sessions] Dashboard error: {:?}", e));
+                    if handle_invoke_error(&e, auth, toast).await {
+                        loading.set(false);
+                        return;
+                    }
                 }
             }
 
@@ -134,6 +142,10 @@ pub fn SessionsPage() -> impl IntoView {
                 }
                 Err(e) => {
                     log(&format!("[Sessions] Upcoming error: {:?}", e));
+                    if handle_invoke_error(&e, auth, toast).await {
+                        loading.set(false);
+                        return;
+                    }
                     error.set(Some("Failed to load sessions.".to_string()));
                 }
             }
@@ -192,6 +204,9 @@ pub fn SessionsPage() -> impl IntoView {
                 }
                 Err(e) => {
                     log(&format!("[Sessions] Activity history error: {:?}", e));
+                    if handle_invoke_error(&e, auth, toast).await {
+                        return;
+                    }
                     // Fall back to local storage
                     let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
                     let promise = invoke("get_session_history", args);
