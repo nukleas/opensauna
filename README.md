@@ -1,12 +1,30 @@
 # BookWorx
 
-A desktop app for managing your HOTWORX sessions. Book faster, track better, skip the phone.
+A desktop app — and reusable Rust library, and Claude Code MCP server — for
+managing your HOTWORX sessions. Book faster, track better, skip the phone.
 
-## What is this
+## What's in this repo
 
-BookWorx is a third-party desktop app for HOTWORX members. It talks to the same API as the official mobile app — you get the same data, just on a real screen with a keyboard.
+This is a Cargo workspace with three pieces:
 
-It's open source. Every line of code that touches your credentials is readable right here. Not affiliated with HOTWORX.
+| Piece | Path | What it is |
+|---|---|---|
+| **BookWorx** | `src/`, `src-tauri/` | The desktop app — Leptos 0.7 frontend (WASM) inside a Tauri 2 webview, native Rust backend |
+| **`hotworx-api`** | [`crates/hotworx-api/`](crates/hotworx-api) | Reusable Rust SDK for the HOTWORX member API. Used by both pieces below. |
+| **`hotworx-mcp`** | [`hotworx-mcp/`](hotworx-mcp) | Model Context Protocol server so Claude Code (and other MCP clients) can drive HOTWORX |
+
+The desktop app is the headline feature. The crate exists so other people can
+build their own HOTWORX tools without re-implementing the wire protocol.
+
+## Disclaimer
+
+Unaffiliated, unofficial, not endorsed by HOTWORX. Every line of code that
+touches your credentials is readable here. Use at your own risk.
+
+Your password is SHA-256 hashed before it leaves your machine — the same way
+the official app handles it. BookWorx never sees or stores your plaintext
+password. Auth tokens at rest are encrypted with AES-256-GCM keyed off a
+per-install device ID.
 
 ## Screenshots
 
@@ -20,24 +38,17 @@ It's open source. Every line of code that touches your credentials is readable r
 
 ## Features
 
-**What you get:**
+- Desktop booking — pick your studio, workout, and time slot without squinting at your phone.
+- Quick Book — one tap to rebook your usual session.
+- Multi-slot selection — book several time slots in one go.
+- Live session timer with calorie and heart rate tracking.
+- Activity history with date filters.
+- Profile and goals editing.
+- Encrypted token storage (AES-256-GCM).
+- Cross-platform: macOS, Windows, Linux, Android.
+- Drives via Claude Code through the bundled MCP server.
 
-- Desktop booking — pick your studio, workout, and time slot without squinting at your phone
-- Quick Book — one tap to rebook your usual session
-- Multi-slot selection — book several time slots in one go
-- Live session timer with calorie and heart rate tracking
-- Activity history with date filters
-- Profile and goals editing
-- Encrypted token storage (AES-256-GCM)
-- Cross-platform: macOS, Windows, Linux, Android
-
-**What you don't get:**
-
-- Ads
-- Upsells
-- A 200 MB download for a booking form
-
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
@@ -45,19 +56,15 @@ It's open source. Every line of code that touches your credentials is readable r
 - WASM target: `rustup target add wasm32-unknown-unknown`
 - [Trunk](https://trunkrs.dev/): `cargo install trunk`
 - [Tauri CLI v2](https://v2.tauri.app/): `cargo install tauri-cli`
-- Platform dependencies — on Ubuntu/Debian:
-  ```
-  sudo apt-get install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-  ```
-  macOS and Windows just need Rust and the tools above.
+- Linux (Ubuntu/Debian) only: `sudo apt-get install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf`. macOS and Windows have no extra system packages.
 
-### Development
+### Run the desktop app
 
 ```
 cargo tauri dev
 ```
 
-This starts Trunk on port 1420 and opens BookWorx with hot reload.
+Hot reload, opens BookWorx pointed at the real HOTWORX API.
 
 ### Production build
 
@@ -65,49 +72,79 @@ This starts Trunk on port 1420 and opens BookWorx with hot reload.
 cargo tauri build
 ```
 
+Outputs `target/release/bundle/macos/BookWorx.app` (and a DMG) on macOS,
+equivalents on other platforms.
+
+### Use just the SDK
+
+```toml
+[dependencies]
+hotworx-api = { path = "crates/hotworx-api" }
+```
+
+See [`crates/hotworx-api/README.md`](crates/hotworx-api/README.md) for the
+full API surface and a usage example.
+
+### Wire up the MCP server
+
+```bash
+cargo install --path hotworx-mcp
+claude mcp add hotworx hotworx-mcp
+```
+
+See [`hotworx-mcp/README.md`](hotworx-mcp/README.md) for the tool list and
+authentication flow.
+
 ### Android
 
-CI builds signed APKs on pushes to `main` and on tagged releases. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml) for the full pipeline. To build locally, you'll also need the Android SDK, NDK 27, and the `aarch64-linux-android` Rust target.
+CI builds signed APKs on pushes to `main` and on tagged releases. See
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml). To build locally
+you'll also need the Android SDK, NDK 27, and the `aarch64-linux-android`
+Rust target.
 
 ## How it's built
 
-**Frontend:** Leptos 0.7 compiled to WASM, running client-side in a Tauri webview. No JS framework — it's all Rust.
+**Frontend.** Leptos 0.7 compiled to WASM, running client-side in a Tauri
+webview. No JS framework — it's all Rust. Pages call the native backend
+through Tauri IPC; the WASM frontend never contacts HOTWORX directly.
 
-**Backend:** Tauri 2.0 native process. Handles every API call, token encryption, and local session tracking. The WASM frontend never talks to HOTWORX directly.
+**Native backend.** Tauri 2.0 process. Owns token-at-rest encryption,
+device-id persistence, local session-tracking state, and the IPC command
+surface. Each `api_*` command is a thin wrapper around `HotworxClient` from
+the `hotworx-api` crate.
 
-**Communication:** Tauri IPC commands. The frontend calls `invoke("command_name", args)` and the backend returns typed responses.
+**SDK.** [`hotworx-api`](crates/hotworx-api) is a typed, transport-only
+client for HOTWORX. It owns the wire protocol, the Android-app header
+spoofing, and the response models. Both the desktop backend and the MCP
+server consume it as a path dependency.
+
+**MCP server.** [`hotworx-mcp`](hotworx-mcp) is a separate binary that
+exposes a small `hotworx_*` tool family over MCP stdio.
 
 ### Directory layout
 
 ```
-src/                        # Frontend (Leptos → WASM)
-├── api/                    # Tauri invoke wrappers
-├── components/             # Reusable UI (session timer, toast, nav, etc.)
-├── models/                 # Shared types (auth, booking, dashboard, profile)
-├── pages/                  # Route pages (login, dashboard, booking, sessions, profile)
-├── state/                  # Reactive state (auth, session tracking)
-├── app.rs                  # Router + layout
-└── main.rs                 # Entry point
-
-src-tauri/                  # Backend (native Rust)
-└── src/
-    ├── lib.rs              # 26 Tauri commands + encryption + API client
-    └── main.rs             # Tauri bootstrap
+.
+├── src/                              # Frontend (Leptos → WASM)
+│   ├── components/                   # Reusable UI
+│   ├── models/                       # WASM-side typed shapes
+│   ├── pages/                        # Route pages
+│   ├── state/                        # Reactive app state (auth, session)
+│   ├── utils/                        # Shared helpers (Tauri bindings, dates, nav)
+│   ├── app.rs                        # Router + layout
+│   └── main.rs                       # Entry point
+│
+├── src-tauri/                        # Native Rust backend for the desktop app
+│   └── src/lib.rs                    # IPC commands + token encryption + storage
+│
+├── crates/hotworx-api/               # Reusable HOTWORX SDK
+│
+└── hotworx-mcp/                      # MCP server for Claude Code
 ```
 
-### Key decisions
-
-- **API calls go through the backend, not WASM.** Browser-like WASM can't set arbitrary headers, and we need to spoof the Android app's `User-Agent` for API compatibility. The native backend has no such restrictions.
-- **AES-256-GCM token encryption.** Auth tokens are encrypted before they hit disk via `tauri-plugin-store`. The key derives from a device-specific salt.
-- **Local session tracking.** Active session state lives on the client so the timer keeps running even if the API is slow.
-- **Android app header spoofing.** The HOTWORX API expects mobile app headers (version, device info). The backend mimics what the official Android app sends.
-
-## Disclaimer
-
-This is an unofficial project. It is not affiliated with, endorsed by, or connected to HOTWORX in any way. Use at your own risk.
-
-Your password is SHA-256 hashed before it leaves your machine — the same way the official app handles it. BookWorx never sees or stores your plaintext password.
+Architecture details and rationale live in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE).

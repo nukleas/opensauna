@@ -18,8 +18,8 @@ use aes_gcm::{
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use hotworx_api::{
     password_hash, ActivityPage, BookSessionResponse, CalorieStats, DailySummary, DashboardData,
-    GoalsData, HotworxClient, HotworxError, Location, LoginResponse, NinetyDaySummary,
-    ProfileData, SessionType, ThirtyDaySummary, TimeSlot, WeightEntry,
+    GoalsData, HotworxClient, HotworxError, Location, LoginResponse, NinetyDaySummary, ProfileData,
+    SessionType, ThirtyDaySummary, TimeSlot, WeightEntry,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -312,7 +312,13 @@ async fn api_book_session(
 ) -> Result<BookSessionResponse, String> {
     let client = build_client(&app).await?;
     client
-        .book_session(&location_id, &booking_date, &session_type, &sauna_no, &time_slot)
+        .book_session(
+            &location_id,
+            &booking_date,
+            &session_type,
+            &sauna_no,
+            &time_slot,
+        )
         .await
         .map_err(ipc_error)
 }
@@ -374,7 +380,15 @@ async fn api_update_profile(
 ) -> Result<serde_json::Value, String> {
     let client = build_client(&app).await?;
     client
-        .update_profile(&first_name, &last_name, &dob, &gender, &height, &weight, &address)
+        .update_profile(
+            &first_name,
+            &last_name,
+            &dob,
+            &gender,
+            &height,
+            &weight,
+            &address,
+        )
         .await
         .map_err(ipc_error)?;
     Ok(serde_json::json!({ "status": "ok" }))
@@ -409,7 +423,9 @@ async fn api_get_ninety_day_summary(
 }
 
 #[tauri::command]
-async fn api_get_calorie_stats(app: tauri::AppHandle) -> Result<DataEnvelope<CalorieStats>, String> {
+async fn api_get_calorie_stats(
+    app: tauri::AppHandle,
+) -> Result<DataEnvelope<CalorieStats>, String> {
     let client = build_client(&app).await?;
     let data = client.get_calorie_stats().await.map_err(ipc_error)?;
     Ok(DataEnvelope { data })
@@ -489,7 +505,12 @@ async fn api_complete_session(
     lead_record_id: String,
     actual_duration_seconds: i64,
 ) -> Result<serde_json::Value, String> {
-    let _ = (app, session_record_id, lead_record_id, actual_duration_seconds);
+    let _ = (
+        app,
+        session_record_id,
+        lead_record_id,
+        actual_duration_seconds,
+    );
     Ok(serde_json::json!({
         "status": "local_only",
         "msg": "Session completion tracked locally"
@@ -831,7 +852,10 @@ mod tests {
         let device_id = "device-abc";
         let plaintext = "secret-token-12345";
         let ciphertext = encrypt_value(plaintext, device_id).unwrap();
-        assert_ne!(ciphertext, plaintext, "ciphertext must differ from plaintext");
+        assert_ne!(
+            ciphertext, plaintext,
+            "ciphertext must differ from plaintext"
+        );
         let decrypted = decrypt_value(&ciphertext, device_id).unwrap();
         assert_eq!(decrypted, plaintext);
     }
@@ -843,7 +867,10 @@ mod tests {
         let plaintext = "hello";
         let a = encrypt_value(plaintext, device_id).unwrap();
         let b = encrypt_value(plaintext, device_id).unwrap();
-        assert_ne!(a, b, "AES-GCM with random nonce should not produce stable output");
+        assert_ne!(
+            a, b,
+            "AES-GCM with random nonce should not produce stable output"
+        );
     }
 
     #[test]

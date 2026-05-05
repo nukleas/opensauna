@@ -8,11 +8,12 @@
 //! and the per-install device ID live in `~/.hotworx-mcp/config.json`.
 
 use anyhow::Result;
-use hotworx_api::{password_hash, HotworxClient, HotworxError};
+use hotworx_api::{HotworxClient, HotworxError, password_hash};
 use rmcp::{
+    ServerHandler, ServiceExt,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::{Implementation, ServerCapabilities, ServerInfo},
-    tool, tool_handler, tool_router, ServerHandler, ServiceExt,
+    tool, tool_handler, tool_router,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -35,7 +36,7 @@ struct Config {
     device_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     auth_token: Option<String>,
-    /// Email saved between [`hotworx_login`] and [`hotworx_verify_otp`] so
+    /// Email saved between `hotworx_login` and `hotworx_verify_otp` so
     /// the OTP step has the context it needs without prompting again.
     #[serde(skip_serializing_if = "Option::is_none")]
     pending_email: Option<String>,
@@ -197,7 +198,10 @@ impl HotworxService {
     async fn hotworx_login(&self, Parameters(args): Parameters<LoginArgs>) -> String {
         let mut config = self.config.lock().await;
         let client = HotworxClient::new(config.device_id.clone());
-        let resp = match client.login_with_password(&args.email, &args.password).await {
+        let resp = match client
+            .login_with_password(&args.email, &args.password)
+            .await
+        {
             Ok(r) => r,
             Err(e) => return format!("Login failed: {}", format_err(e)),
         };
@@ -299,7 +303,9 @@ impl HotworxService {
         }
     }
 
-    #[tool(description = "Get available session types (e.g. HOT YOGA, HOT BLAST) for a location and date.")]
+    #[tool(
+        description = "Get available session types (e.g. HOT YOGA, HOT BLAST) for a location and date."
+    )]
     async fn hotworx_get_session_types(
         &self,
         Parameters(args): Parameters<LocationDateArgs>,
@@ -309,17 +315,17 @@ impl HotworxService {
             Ok(c) => c,
             Err(e) => return e,
         };
-        match client.get_session_types(&args.location_id, &args.date).await {
+        match client
+            .get_session_types(&args.location_id, &args.date)
+            .await
+        {
             Ok(v) => pretty(&v),
             Err(e) => format_err(e),
         }
     }
 
     #[tool(description = "Get available time slots for a session type at a location and date.")]
-    async fn hotworx_get_available_slots(
-        &self,
-        Parameters(args): Parameters<SlotsArgs>,
-    ) -> String {
+    async fn hotworx_get_available_slots(&self, Parameters(args): Parameters<SlotsArgs>) -> String {
         let config = self.config.lock().await;
         let client = match client_for(&config) {
             Ok(c) => c,

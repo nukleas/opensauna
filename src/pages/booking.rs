@@ -579,4 +579,3 @@ pub fn BookingPage() -> impl IntoView {
         </div>
     }
 }
-

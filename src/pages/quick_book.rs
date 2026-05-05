@@ -454,4 +454,3 @@ pub fn QuickBookPage() -> impl IntoView {
         </div>
     }
 }
-

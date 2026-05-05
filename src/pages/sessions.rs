@@ -396,4 +396,3 @@ pub fn SessionsPage() -> impl IntoView {
         </div>
     }
 }
-

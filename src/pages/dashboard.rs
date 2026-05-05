@@ -394,4 +394,3 @@ pub fn DashboardPage() -> impl IntoView {
         </div>
     }
 }
-
