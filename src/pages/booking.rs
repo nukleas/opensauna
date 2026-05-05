@@ -1,7 +1,8 @@
 use crate::components::toast::use_toast;
 use crate::components::{BottomNav, Button, IconChevronLeft, NavItem, PageLoading};
-use crate::models::booking::{BookSessionResponse, SessionType, TimeSlot};
+use crate::models::booking::{SessionType, TimeSlot};
 use crate::state::{handle_invoke_error, use_auth_state};
+use crate::utils::booking::{book_slots, BookableSlot};
 use crate::utils::dates::{max_booking_date as get_max_date, today as get_today_date};
 use crate::utils::nav::go as navigate_to;
 use crate::utils::tauri::{invoke, log};
@@ -171,70 +172,34 @@ pub fn BookingPage() -> impl IntoView {
         error.set(None);
 
         wasm_bindgen_futures::spawn_local(async move {
-            let mut failed: Vec<String> = Vec::new();
-            let total = slots.len();
+            // Each slot resolves its own session-type — fall back to "Hot
+            // Yoga" if the slot is missing the field (older API rows).
+            let bookables: Vec<BookableSlot> = slots
+                .into_iter()
+                .map(|slot| {
+                    let session_type = slot
+                        .session_name
+                        .clone()
+                        .unwrap_or_else(|| "Hot Yoga".to_string());
+                    BookableSlot { slot, session_type }
+                })
+                .collect();
 
-            for (idx, slot) in slots.into_iter().enumerate() {
-                let sauna_no = slot.sauna_no.clone().unwrap_or_default();
-                let time_slot = slot.time_slot.clone().unwrap_or_default();
-                let session_type = slot
-                    .session_name
-                    .clone()
-                    .unwrap_or_else(|| "Hot Yoga".to_string());
+            let outcome =
+                book_slots(auth, toast, bookables, loc_id, date, booking_progress).await;
 
-                log(&format!(
-                    "[Booking] Booking {}/{}: {} at {} on {}",
-                    idx + 1,
-                    total,
-                    session_type,
-                    time_slot,
-                    date
-                ));
-
-                let args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                    "saunaNo": sauna_no,
-                    "timeSlot": time_slot,
-                    "bookingDate": date,
-                    "sessionType": session_type,
-                    "locationId": loc_id
-                }))
-                .unwrap();
-
-                let promise = invoke("api_book_session", args);
-
-                match JsFuture::from(promise).await {
-                    Ok(result) => {
-                        if let Ok(response) =
-                            serde_wasm_bindgen::from_value::<BookSessionResponse>(result)
-                        {
-                            if let Some(err) = response.error.filter(|e| !e.is_empty()) {
-                                failed.push(format!("{}: {}", time_slot, err));
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        log(&format!("[Booking] Error: {:?}", e));
-                        if handle_invoke_error(&e, auth, toast).await {
-                            booking_loading.set(false);
-                            return;
-                        }
-                        failed.push(time_slot.clone());
-                    }
-                }
-
-                booking_progress.set(idx + 1);
-            }
-
-            if failed.is_empty() {
-                success_msg.set(Some(format!("Successfully booked {} session(s)!", total)));
+            if outcome.all_succeeded() {
+                success_msg.set(Some(format!(
+                    "Successfully booked {} session(s)!",
+                    outcome.total
+                )));
                 navigate_to("/");
             } else {
-                let success_count = total - failed.len();
                 error.set(Some(format!(
                     "Booked {} of {} sessions. Failed: {}",
-                    success_count,
-                    total,
-                    failed.join(", ")
+                    outcome.success_count(),
+                    outcome.total,
+                    outcome.failures.join(", ")
                 )));
             }
 
