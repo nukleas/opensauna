@@ -364,8 +364,7 @@ dependencies = [
  "aes-gcm",
  "base64 0.22.1",
  "chrono",
- "hex",
- "reqwest 0.12.28",
+ "hotworx-api",
  "serde",
  "serde_json",
  "sha2",
@@ -376,7 +375,6 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-test",
- "urlencoding",
  "uuid",
 ]
 
