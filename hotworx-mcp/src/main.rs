@@ -1,5 +1,14 @@
+//! HOTWORX MCP server.
+//!
+//! Exposes a small set of HOTWORX tools over the Model Context Protocol so
+//! Claude Code (and any other MCP client) can read your dashboard, browse
+//! locations, and book sessions on your behalf.
+//!
+//! The server is a thin layer over [`hotworx_api::HotworxClient`]; tokens
+//! and the per-install device ID live in `~/.hotworx-mcp/config.json`.
+
 use anyhow::Result;
-use reqwest::Client;
+use hotworx_api::{password_hash, HotworxClient, HotworxError};
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::{Implementation, ServerCapabilities, ServerInfo},
@@ -7,13 +16,9 @@ use rmcp::{
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-
-const BASE_URL: &str = "https://sailposapi.hotworx.net/api/v1";
 
 // ── Config persistence ───────────────────────────────────────
 
@@ -30,10 +35,14 @@ struct Config {
     device_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     auth_token: Option<String>,
+    /// Email saved between [`hotworx_login`] and [`hotworx_verify_otp`] so
+    /// the OTP step has the context it needs without prompting again.
     #[serde(skip_serializing_if = "Option::is_none")]
-    _pending_email: Option<String>,
+    pending_email: Option<String>,
+    /// SHA-256 hash of the plaintext password from the login step. The
+    /// HOTWORX OTP endpoint takes the same hash; it never sees plaintext.
     #[serde(skip_serializing_if = "Option::is_none")]
-    _pending_password_hash: Option<String>,
+    pending_password_hash: Option<String>,
 }
 
 impl Config {
@@ -56,96 +65,29 @@ impl Config {
             std::fs::write(config_path(), json).ok();
         }
     }
+}
 
-    fn token(&self) -> std::result::Result<&str, String> {
-        self.auth_token
-            .as_deref()
-            .ok_or_else(|| "Not authenticated. Use hotworx_login first.".to_string())
-    }
+/// Build an authenticated [`HotworxClient`] from the persisted config.
+/// Returns the not-authenticated message used by the MCP tools below.
+fn client_for(config: &Config) -> std::result::Result<HotworxClient, String> {
+    let token = config
+        .auth_token
+        .as_deref()
+        .ok_or_else(|| "Not authenticated. Use hotworx_login first.".to_string())?;
+    Ok(HotworxClient::new(config.device_id.clone()).with_token(token))
+}
 
-    fn ensure_loaded(self) -> Self {
-        if self.auth_token.is_none() {
-            Self::load()
-        } else {
-            self
+/// Format a `HotworxError` for the MCP client.
+fn format_err(err: HotworxError) -> String {
+    match err {
+        HotworxError::AuthExpired => {
+            "Session expired. Use hotworx_login to sign in again.".to_string()
         }
+        other => format!("HOTWORX error: {}", other),
     }
 }
 
-// ── HTTP helpers ─────────────────────────────────────────────
-
-async fn api_post_form(
-    client: &Client,
-    endpoint: &str,
-    params: HashMap<&str, String>,
-    config: &Config,
-    auth: bool,
-) -> std::result::Result<serde_json::Value, String> {
-    let url = format!("{}/{}", BASE_URL, endpoint);
-
-    let mut req = client
-        .post(&url)
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .header("User-Agent", "okhttp/4.12.0")
-        .header("sec-ch-ua-platform", "Android")
-        .header("application-version", "6.5.5")
-        .header("device-id", &config.device_id);
-
-    if auth {
-        let token = config.token()?;
-        req = req.header("Authorization", format!("Bearer {}", token));
-    }
-
-    let body: String = params
-        .iter()
-        .map(|(k, v)| format!("{}={}", urlencoding::encode(k), urlencoding::encode(v)))
-        .collect::<Vec<_>>()
-        .join("&");
-
-    let resp = req
-        .body(body)
-        .send()
-        .await
-        .map_err(|e| format!("Request failed: {e}"))?;
-
-    let text = resp.text().await.map_err(|e| format!("Read failed: {e}"))?;
-
-    serde_json::from_str(&text)
-        .map_err(|e| format!("Parse error: {e} - {}", &text[..text.len().min(200)]))
-}
-
-async fn api_get(
-    client: &Client,
-    endpoint: &str,
-    config: &Config,
-) -> std::result::Result<serde_json::Value, String> {
-    let url = format!("{}/{}", BASE_URL, endpoint);
-    let token = config.token()?;
-
-    let resp = client
-        .get(&url)
-        .header("User-Agent", "okhttp/4.12.0")
-        .header("sec-ch-ua-platform", "Android")
-        .header("application-version", "6.5.5")
-        .header("device-id", &config.device_id)
-        .header("Authorization", format!("Bearer {}", token))
-        .send()
-        .await
-        .map_err(|e| format!("Request failed: {e}"))?;
-
-    let text = resp.text().await.map_err(|e| format!("Read failed: {e}"))?;
-
-    serde_json::from_str(&text)
-        .map_err(|e| format!("Parse error: {e} - {}", &text[..text.len().min(200)]))
-}
-
-fn sha256_hex(input: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(input.as_bytes());
-    hex::encode(hasher.finalize())
-}
-
-fn pretty(val: &serde_json::Value) -> String {
+fn pretty<T: Serialize>(val: &T) -> String {
     serde_json::to_string_pretty(val).unwrap_or_default()
 }
 
@@ -234,61 +176,48 @@ fn default_limit() -> u32 {
 
 #[derive(Clone)]
 struct HotworxService {
-    client: Client,
     config: Arc<Mutex<Config>>,
     tool_router: ToolRouter<Self>,
 }
 
 impl HotworxService {
     fn new() -> Self {
-        let client = Client::new();
-        let config = Arc::new(Mutex::new(Config::load()));
         Self {
-            client,
-            config,
+            config: Arc::new(Mutex::new(Config::load())),
             tool_router: Self::tool_router(),
         }
-    }
-
-    async fn cfg(&self) -> Config {
-        self.config.lock().await.clone().ensure_loaded()
     }
 }
 
 #[tool_router(router = tool_router)]
 impl HotworxService {
-    #[tool(description = "Log in to HOTWORX with email and password. Required before any other operation.")]
+    #[tool(
+        description = "Log in to HOTWORX with email and password. Required before any other operation."
+    )]
     async fn hotworx_login(&self, Parameters(args): Parameters<LoginArgs>) -> String {
         let mut config = self.config.lock().await;
-        *config = Config::load();
-
-        let password_hash = sha256_hex(&args.password);
-        let mut params = HashMap::new();
-        params.insert("email_address", args.email.clone());
-        params.insert("password", password_hash.clone());
-        params.insert("device_id", config.device_id.clone());
-
-        let res = match api_post_form(&self.client, "loginwithpassword", params, &config, false).await {
-            Ok(v) => v,
-            Err(e) => return format!("Login failed: {e}"),
+        let client = HotworxClient::new(config.device_id.clone());
+        let resp = match client.login_with_password(&args.email, &args.password).await {
+            Ok(r) => r,
+            Err(e) => return format!("Login failed: {}", format_err(e)),
         };
 
-        if let Some(err) = res.get("error").and_then(|e| e.as_str()) {
-            return format!("Login failed: {err}");
+        if let Some(err) = resp.error.as_deref() {
+            return format!("Login failed: {}", err);
         }
 
-        if res.get("two_factor").and_then(|v| v.as_str()) == Some("yes") {
-            if let Some(token) = res.get("token").and_then(|t| t.as_str()) {
-                config.auth_token = Some(token.to_string());
+        if resp.requires_otp() {
+            if let Some(token) = resp.token {
+                config.auth_token = Some(token);
             }
-            config._pending_email = Some(args.email);
-            config._pending_password_hash = Some(password_hash);
+            config.pending_email = Some(args.email);
+            config.pending_password_hash = Some(password_hash(&args.password));
             config.save();
             return "Two-factor auth required. Use hotworx_verify_otp with the code sent to your phone.".to_string();
         }
 
-        if let Some(token) = res.get("token").and_then(|t| t.as_str()) {
-            config.auth_token = Some(token.to_string());
+        if let Some(token) = resp.token {
+            config.auth_token = Some(token);
             config.save();
             return "Login successful! You can now book sessions.".to_string();
         }
@@ -296,36 +225,37 @@ impl HotworxService {
         "Login failed — unknown error.".to_string()
     }
 
-    #[tool(description = "Verify OTP code sent to your phone after login (only if two-factor auth is enabled).")]
+    #[tool(
+        description = "Verify OTP code sent to your phone after login (only if two-factor auth is enabled)."
+    )]
     async fn hotworx_verify_otp(&self, Parameters(args): Parameters<OtpArgs>) -> String {
         let mut config = self.config.lock().await;
-        let (email, password_hash) = match (config._pending_email.clone(), config._pending_password_hash.clone()) {
+        let (email, hash) = match (
+            config.pending_email.clone(),
+            config.pending_password_hash.clone(),
+        ) {
             (Some(e), Some(p)) => (e, p),
             _ => return "No pending login. Call hotworx_login first.".to_string(),
         };
 
-        let mut params = HashMap::new();
-        params.insert("email_address", email);
-        params.insert("password", password_hash);
-        params.insert("phone_number", String::new());
-        params.insert("device_id", config.device_id.clone());
-        params.insert("otp", args.otp);
-        params.insert("type", "password".to_string());
-
-        let res = match api_post_form(&self.client, "verifyOtp", params, &config, true).await {
-            Ok(v) => v,
-            Err(e) => return format!("OTP failed: {e}"),
+        let client = match client_for(&config) {
+            Ok(c) => c,
+            Err(e) => return e,
+        };
+        let resp = match client.verify_otp(&email, &hash, &args.otp).await {
+            Ok(r) => r,
+            Err(e) => return format!("OTP failed: {}", format_err(e)),
         };
 
-        if let Some(err) = res.get("error").and_then(|e| e.as_str()) {
-            return format!("OTP failed: {err}");
+        if let Some(err) = resp.error.as_deref() {
+            return format!("OTP failed: {}", err);
         }
 
-        if let Some(new_token) = res.get("token").and_then(|t| t.as_str()) {
-            config.auth_token = Some(new_token.to_string());
+        if let Some(new_token) = resp.token {
+            config.auth_token = Some(new_token);
         }
-        config._pending_email = None;
-        config._pending_password_hash = None;
+        config.pending_email = None;
+        config.pending_password_hash = None;
         config.save();
 
         "OTP verified! You can now book sessions.".to_string()
@@ -335,120 +265,157 @@ impl HotworxService {
     async fn hotworx_logout(&self) -> String {
         let mut config = self.config.lock().await;
         config.auth_token = None;
-        config._pending_email = None;
-        config._pending_password_hash = None;
+        config.pending_email = None;
+        config.pending_password_hash = None;
         config.save();
         "Logged out.".to_string()
     }
 
-    #[tool(description = "Get today's sessions, completed sessions, and summary stats. Optionally pass a date (YYYY-MM-DD).")]
+    #[tool(
+        description = "Get today's sessions, completed sessions, and summary stats. Optionally pass a date (YYYY-MM-DD)."
+    )]
     async fn hotworx_dashboard(&self, Parameters(args): Parameters<DashboardArgs>) -> String {
-        let cfg = self.cfg().await;
-        let mut params = HashMap::new();
-        if let Some(date) = args.date {
-            params.insert("current_date", date);
-        }
-        match api_post_form(&self.client, "getDashboard", params, &cfg, true).await {
+        let config = self.config.lock().await;
+        let client = match client_for(&config) {
+            Ok(c) => c,
+            Err(e) => return e,
+        };
+        match client.get_dashboard(args.date.as_deref()).await {
             Ok(v) => pretty(&v),
-            Err(e) => e,
+            Err(e) => format_err(e),
         }
     }
 
     #[tool(description = "Get all HOTWORX studio locations available for booking.")]
     async fn hotworx_get_locations(&self) -> String {
-        let cfg = self.cfg().await;
-        match api_get(&self.client, "booking/getBookingLocations_v2", &cfg).await {
+        let config = self.config.lock().await;
+        let client = match client_for(&config) {
+            Ok(c) => c,
+            Err(e) => return e,
+        };
+        match client.get_locations().await {
             Ok(v) => pretty(&v),
-            Err(e) => e,
+            Err(e) => format_err(e),
         }
     }
 
     #[tool(description = "Get available session types (e.g. HOT YOGA, HOT BLAST) for a location and date.")]
-    async fn hotworx_get_session_types(&self, Parameters(args): Parameters<LocationDateArgs>) -> String {
-        let cfg = self.cfg().await;
-        let mut params = HashMap::new();
-        params.insert("selected_location_id", args.location_id);
-        params.insert("selected_date", args.date);
-        params.insert("view_type", "by_session_type".to_string());
-        match api_post_form(&self.client, "booking/getLevelTwo_v2", params, &cfg, true).await {
+    async fn hotworx_get_session_types(
+        &self,
+        Parameters(args): Parameters<LocationDateArgs>,
+    ) -> String {
+        let config = self.config.lock().await;
+        let client = match client_for(&config) {
+            Ok(c) => c,
+            Err(e) => return e,
+        };
+        match client.get_session_types(&args.location_id, &args.date).await {
             Ok(v) => pretty(&v),
-            Err(e) => e,
+            Err(e) => format_err(e),
         }
     }
 
     #[tool(description = "Get available time slots for a session type at a location and date.")]
-    async fn hotworx_get_available_slots(&self, Parameters(args): Parameters<SlotsArgs>) -> String {
-        let cfg = self.cfg().await;
-        let mut params = HashMap::new();
-        params.insert("selected_date", args.date);
-        params.insert("selected_location_id", args.location_id);
-        params.insert("view_type", "by_session_type".to_string());
-        params.insert("selected_time", "all".to_string());
-        params.insert("session_type", args.session_type);
-        match api_post_form(&self.client, "booking/showSlots", params, &cfg, true).await {
+    async fn hotworx_get_available_slots(
+        &self,
+        Parameters(args): Parameters<SlotsArgs>,
+    ) -> String {
+        let config = self.config.lock().await;
+        let client = match client_for(&config) {
+            Ok(c) => c,
+            Err(e) => return e,
+        };
+        match client
+            .show_slots(&args.location_id, &args.date, &args.session_type)
+            .await
+        {
             Ok(v) => pretty(&v),
-            Err(e) => e,
+            Err(e) => format_err(e),
         }
     }
 
     #[tool(description = "Book a HOTWORX session. Call once per slot for back-to-back sessions.")]
     async fn hotworx_book_session(&self, Parameters(args): Parameters<BookArgs>) -> String {
-        let cfg = self.cfg().await;
-        let mut params = HashMap::new();
-        params.insert("sauna_no", args.sauna_no);
-        params.insert("time_slot", args.time_slot);
-        params.insert("booking_date", args.date);
-        params.insert("session_type", args.session_type);
-        params.insert("selected_location_id", args.location_id);
-        match api_post_form(&self.client, "booking/bookSession_v2", params, &cfg, true).await {
+        let config = self.config.lock().await;
+        let client = match client_for(&config) {
+            Ok(c) => c,
+            Err(e) => return e,
+        };
+        match client
+            .book_session(
+                &args.location_id,
+                &args.date,
+                &args.session_type,
+                &args.sauna_no,
+                &args.time_slot,
+            )
+            .await
+        {
             Ok(v) => pretty(&v),
-            Err(e) => e,
+            Err(e) => format_err(e),
         }
     }
 
-    #[tool(description = "Cancel a booked session. Requires session_record_id and lead_record_id from dashboard.")]
+    #[tool(
+        description = "Cancel a booked session. Requires session_record_id and lead_record_id from dashboard."
+    )]
     async fn hotworx_cancel_session(&self, Parameters(args): Parameters<CancelArgs>) -> String {
-        let cfg = self.cfg().await;
-        let mut params = HashMap::new();
-        params.insert("booking_id", args.session_record_id);
-        params.insert("lead_record_id", args.lead_record_id);
-        match api_post_form(&self.client, "booking/deleteSession", params, &cfg, true).await {
-            Ok(v) => pretty(&v),
-            Err(e) => e,
+        let config = self.config.lock().await;
+        let client = match client_for(&config) {
+            Ok(c) => c,
+            Err(e) => return e,
+        };
+        match client
+            .delete_session(&args.session_record_id, &args.lead_record_id)
+            .await
+        {
+            Ok(()) => "Session cancelled.".to_string(),
+            Err(e) => format_err(e),
         }
     }
 
     #[tool(description = "Get your HOTWORX profile (name, email, phone, height, weight).")]
     async fn hotworx_get_profile(&self) -> String {
-        let cfg = self.cfg().await;
-        match api_post_form(&self.client, "general/view_profile", HashMap::new(), &cfg, true).await {
+        let config = self.config.lock().await;
+        let client = match client_for(&config) {
+            Ok(c) => c,
+            Err(e) => return e,
+        };
+        match client.view_profile().await {
             Ok(v) => pretty(&v),
-            Err(e) => e,
+            Err(e) => format_err(e),
         }
     }
 
     #[tool(description = "Get past session history with pagination.")]
-    async fn hotworx_get_activity_history(&self, Parameters(args): Parameters<HistoryArgs>) -> String {
-        let cfg = self.cfg().await;
-        let mut endpoint = format!(
-            "activities/ActivityByLifeTime?page_no={}&page_limit={}",
-            args.page, args.limit
-        );
-        if let Some(st) = &args.session_type {
-            endpoint.push_str(&format!("&session_type={}", urlencoding::encode(st)));
-        }
-        match api_get(&self.client, &endpoint, &cfg).await {
+    async fn hotworx_get_activity_history(
+        &self,
+        Parameters(args): Parameters<HistoryArgs>,
+    ) -> String {
+        let config = self.config.lock().await;
+        let client = match client_for(&config) {
+            Ok(c) => c,
+            Err(e) => return e,
+        };
+        match client
+            .get_activity_history(args.page, args.limit, args.session_type.as_deref())
+            .await
+        {
             Ok(v) => pretty(&v),
-            Err(e) => e,
+            Err(e) => format_err(e),
         }
     }
 
     #[tool(description = "Get lifetime calorie statistics.")]
     async fn hotworx_get_calorie_stats(&self) -> String {
-        let cfg = self.cfg().await;
-        match api_get(&self.client, "general/view_calorie_stats", &cfg).await {
+        let config = self.config.lock().await;
+        let client = match client_for(&config) {
+            Ok(c) => c,
+            Err(e) => return e,
+        };
+        match client.get_calorie_stats().await {
             Ok(v) => pretty(&v),
-            Err(e) => e,
+            Err(e) => format_err(e),
         }
     }
 }
