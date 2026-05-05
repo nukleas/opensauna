@@ -1,6 +1,10 @@
 /dist/
 /target/
-/Cargo.lock
 .DS_Store
 .env
 com.hotworx-decompiled/
+
+# Local development artifacts kept on disk for reference but not shipped
+/test_api.sh
+/icon-concepts/
+/Gemini_Generated_Image_*.png
