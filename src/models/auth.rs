@@ -39,7 +39,7 @@ pub struct ApiResponse<T> {
 }
 
 /// Login response data (works for both initial login and OTP verification)
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct LoginResponse {
     pub msg: Option<String>,
     pub token: Option<String>,

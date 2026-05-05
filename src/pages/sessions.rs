@@ -2,18 +2,10 @@ use crate::components::toast::use_toast;
 use crate::components::{BottomNav, EmptySessionList, NavItem, PageLoading, SessionCard};
 use crate::models::dashboard::PendingSession;
 use crate::state::{handle_invoke_error, use_auth_state};
+use crate::utils::dates::today as get_today_date;
+use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
-use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "core"])]
-    fn invoke(cmd: &str, args: JsValue) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
 
 /// Activity history page with upcoming and completed sessions, filterable by date range.
 #[component]
@@ -405,11 +397,3 @@ pub fn SessionsPage() -> impl IntoView {
     }
 }
 
-/// Get today's date in YYYY-MM-DD format
-fn get_today_date() -> String {
-    let now = js_sys::Date::new_0();
-    let year = now.get_full_year();
-    let month = now.get_month() + 1; // 0-indexed
-    let day = now.get_date();
-    format!("{:04}-{:02}-{:02}", year, month, day)
-}

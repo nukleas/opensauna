@@ -2,18 +2,13 @@ use super::dashboard::PendingSession;
 use serde::{Deserialize, Serialize};
 
 /// Session tracking state
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SessionState {
+    #[default]
     Upcoming,
     Active,
     Completed,
     Cancelled,
-}
-
-impl Default for SessionState {
-    fn default() -> Self {
-        Self::Upcoming
-    }
 }
 
 /// Active session tracking data (persisted locally)

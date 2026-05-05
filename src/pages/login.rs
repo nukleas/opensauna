@@ -1,40 +1,10 @@
 use crate::components::{Button, IconFlame, LoadingOverlay, TextInput};
+use crate::models::auth::LoginResponse;
 use crate::state::use_auth_state;
+use crate::utils::nav::go as navigate_to;
+use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
-use leptos::web_sys;
-use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "core"])]
-    fn invoke(cmd: &str, args: JsValue) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
-
-fn navigate_to(path: &str) {
-    if let Some(window) = web_sys::window() {
-        let _ = window.location().set_href(path);
-    }
-}
-
-/// Response from login API
-#[derive(Debug, Clone, serde::Deserialize)]
-struct LoginResponse {
-    #[allow(dead_code)]
-    msg: Option<String>,
-    token: Option<String>,
-    two_factor: Option<String>,
-    error: Option<String>,
-}
-
-impl LoginResponse {
-    fn requires_otp(&self) -> bool {
-        self.two_factor.as_deref() == Some("yes")
-    }
-}
 
 /// Email and password login page. Redirects to OTP if two-factor is required.
 #[component]
@@ -84,10 +54,8 @@ pub fn LoginPage() -> impl IntoView {
                         .unwrap_or_else(|e| {
                             log(&format!("[Login] Parse error: {:?}", e));
                             LoginResponse {
-                                msg: None,
-                                token: None,
-                                two_factor: None,
                                 error: Some(format!("Parse error: {:?}", e)),
+                                ..Default::default()
                             }
                         });
 

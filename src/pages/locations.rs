@@ -2,25 +2,10 @@ use crate::components::toast::use_toast;
 use crate::components::{BottomNav, IconSearch, NavItem, PageLoading};
 use crate::models::location::Location;
 use crate::state::{handle_invoke_error, use_auth_state};
+use crate::utils::nav::go as navigate_to;
+use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
-use leptos::web_sys;
-use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "core"])]
-    fn invoke(cmd: &str, args: JsValue) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
-
-fn navigate_to(path: &str) {
-    if let Some(window) = web_sys::window() {
-        let _ = window.location().set_href(path);
-    }
-}
 
 /// Studio location picker — lists available and frequent locations, then navigates to booking.
 #[component]
@@ -43,15 +28,14 @@ pub fn LocationsPage() -> impl IntoView {
             let promise = invoke("get_preferred_location", args);
 
             if let Ok(result) = JsFuture::from(promise).await {
-                if let Ok(pref) = serde_wasm_bindgen::from_value::<Option<(String, String)>>(result)
+                if let Ok(Some((id, name))) =
+                    serde_wasm_bindgen::from_value::<Option<(String, String)>>(result)
                 {
-                    if let Some((id, name)) = pref {
-                        log(&format!(
-                            "[Locations] Found preferred location: {} ({})",
-                            name, id
-                        ));
-                        preferred_location.set(Some((id, name)));
-                    }
+                    log(&format!(
+                        "[Locations] Found preferred location: {} ({})",
+                        name, id
+                    ));
+                    preferred_location.set(Some((id, name)));
                 }
             }
 
@@ -151,8 +135,7 @@ pub fn LocationsPage() -> impl IntoView {
                 let pref = preferred_location.get();
                 let showing_all = show_all_locations.get();
 
-                if pref.is_some() && !showing_all {
-                    let (_, name) = pref.unwrap();
+                if let (Some((_, name)), false) = (pref, showing_all) {
                     view! {
                         <div class="preferred-location-section">
                             <div class="preferred-card">
@@ -205,7 +188,7 @@ pub fn LocationsPage() -> impl IntoView {
                                             {locs.into_iter().map(|loc| {
                                                 let loc_id = loc.location_id.clone();
                                                 let loc_name = loc.location_name.clone();
-                                                let on_click = on_select_location.clone();
+                                                let on_click = on_select_location;
                                                 view! {
                                                     <button
                                                         class="location-card"

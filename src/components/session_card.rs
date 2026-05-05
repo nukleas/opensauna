@@ -1,18 +1,9 @@
 use crate::components::toast::use_toast;
 use crate::models::dashboard::PendingSession;
 use crate::state::{handle_invoke_error, use_auth_state};
+use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
-use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "core"])]
-    fn invoke(cmd: &str, args: JsValue) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
 
 /// Card displaying a single session (pending or completed) with optional cancel/start actions.
 #[component]
@@ -45,10 +36,10 @@ pub fn SessionCard(
                 <h3 class="session-name">{session.display_name()}</h3>
                 {if !time.is_empty() {
                     Some(view! { <span class="session-time">{time}</span> })
-                } else if let Some(ref cal) = calories {
-                    Some(view! { <span class="session-time">{cal.clone()}</span> })
                 } else {
-                    None
+                    calories
+                        .as_ref()
+                        .map(|cal| view! { <span class="session-time">{cal.clone()}</span> })
                 }}
             </div>
             <div class="session-details">

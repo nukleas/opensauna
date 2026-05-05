@@ -2,26 +2,12 @@ use crate::components::toast::use_toast;
 use crate::components::{BottomNav, Button, IconChevronLeft, NavItem, PageLoading};
 use crate::models::booking::{SessionType, TimeSlot};
 use crate::state::{handle_invoke_error, use_auth_state};
+use crate::utils::dates::{max_booking_date as get_max_date, today as get_today_date};
+use crate::utils::nav::go as navigate_to;
+use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
-use leptos::web_sys;
 use leptos_router::hooks::use_params_map;
-use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "core"])]
-    fn invoke(cmd: &str, args: JsValue) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
-
-fn navigate_to(path: &str) {
-    if let Some(window) = web_sys::window() {
-        let _ = window.location().set_href(path);
-    }
-}
 
 /// Session booking flow: date picker, session type selector, and time slot grid.
 #[component]
@@ -594,22 +580,3 @@ pub fn BookingPage() -> impl IntoView {
     }
 }
 
-/// Get today's date in YYYY-MM-DD format
-fn get_today_date() -> String {
-    let now = js_sys::Date::new_0();
-    let year = now.get_full_year();
-    let month = now.get_month() + 1; // 0-indexed
-    let day = now.get_date();
-    format!("{:04}-{:02}-{:02}", year, month, day)
-}
-
-/// Get max booking date (today + 2 days) in YYYY-MM-DD format
-fn get_max_date() -> String {
-    let now = js_sys::Date::new_0();
-    // Add 2 days (API allows within 3 days including today)
-    now.set_date(now.get_date() + 2);
-    let year = now.get_full_year();
-    let month = now.get_month() + 1;
-    let day = now.get_date();
-    format!("{:04}-{:02}-{:02}", year, month, day)
-}

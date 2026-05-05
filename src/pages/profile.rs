@@ -2,18 +2,9 @@ use crate::components::toast::use_toast;
 use crate::components::{BottomNav, Button, NavItem, PageLoading, TextInput};
 use crate::models::profile::{CalorieStatsData, GoalsData, ProfileData};
 use crate::state::{handle_invoke_error, use_auth_state};
+use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
-use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "core"])]
-    fn invoke(cmd: &str, args: JsValue) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
 
 /// Profile page with user info, calorie stats, goals management, and logout.
 #[component]

@@ -1,6 +1,6 @@
-use crate::api::client::{clear_auth_token, get_auth_token, store_auth_token, ApiClient};
 use crate::components::toast::ToastState;
 use crate::models::auth::UserProfile;
+use crate::utils::tauri::{clear_auth_token, get_auth_token, store_auth_token};
 use leptos::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -37,14 +37,6 @@ impl AuthState {
     pub fn is_authenticated(&self) -> Signal<bool> {
         let token = self.token;
         Signal::derive(move || token.get().is_some())
-    }
-
-    /// Get an API client with the current token
-    pub fn api_client(&self) -> ApiClient {
-        match self.token.get() {
-            Some(token) => ApiClient::with_token(token),
-            None => ApiClient::new(),
-        }
     }
 
     /// Set the auth token (and persist it)
@@ -131,7 +123,7 @@ pub async fn handle_invoke_error(err: &JsValue, auth: AuthState, toast: ToastSta
 /// Provide AuthState context at the app root
 pub fn provide_auth_state() -> AuthState {
     let auth_state = AuthState::new();
-    provide_context(auth_state.clone());
+    provide_context(auth_state);
     auth_state
 }
 

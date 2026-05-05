@@ -124,10 +124,7 @@ pub fn ActiveSessionView(
                                     <button
                                         class="button button-danger"
                                         disabled=move || ending.get()
-                                        on:click={
-                                            let end_session = end_session.clone();
-                                            move |_| end_session()
-                                        }
+                                        on:click=move |_| end_session()
                                     >
                                         {move || if ending.get() { "Ending..." } else { "Yes, End Session" }}
                                     </button>

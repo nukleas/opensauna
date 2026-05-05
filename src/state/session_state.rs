@@ -1,17 +1,12 @@
 use crate::models::dashboard::PendingSession;
 use crate::models::session_tracking::{SessionState, TrackedSession};
+use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
 #[wasm_bindgen]
 extern "C" {
-    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "core"])]
-    fn invoke(cmd: &str, args: JsValue) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-
     #[wasm_bindgen(js_name = "Date.now")]
     fn date_now() -> f64;
 }

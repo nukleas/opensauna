@@ -1,39 +1,14 @@
 use crate::components::{Button, IconChevronLeft, LoadingOverlay, OtpInput};
+use crate::models::auth::LoginResponse as VerifyOtpResponse;
 use crate::state::use_auth_state;
+use crate::utils::nav::go as navigate_to;
+use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
-use leptos::web_sys;
-use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "core"])]
-    fn invoke(cmd: &str, args: JsValue) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
-
-fn navigate_to(path: &str) {
-    if let Some(window) = web_sys::window() {
-        let _ = window.location().set_href(path);
-    }
-}
-
-/// Response from verify OTP API
+/// Pending login data from Tauri store: `(email, password, token)`.
 #[derive(Debug, Clone, serde::Deserialize)]
-struct VerifyOtpResponse {
-    #[allow(dead_code)]
-    msg: Option<String>,
-    token: Option<String>,
-    error: Option<String>,
-    #[allow(dead_code)]
-    data: Option<serde_json::Value>,
-}
-
-/// Pending login data from Tauri store
-#[derive(Debug, Clone, serde::Deserialize)]
-struct PendingLoginData(String, String, String); // (email, password, token)
+struct PendingLoginData(String, String, String);
 
 /// OTP code entry page, shown after password login when two-factor auth is enabled.
 #[component]
@@ -93,10 +68,8 @@ pub fn OtpPage() -> impl IntoView {
                         .unwrap_or_else(|e| {
                             log(&format!("[OTP] Parse error: {:?}", e));
                             VerifyOtpResponse {
-                                msg: None,
-                                token: None,
                                 error: Some(format!("Parse error: {:?}", e)),
-                                data: None,
+                                ..Default::default()
                             }
                         });
 
