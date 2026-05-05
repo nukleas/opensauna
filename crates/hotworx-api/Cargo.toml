@@ -1,0 +1,25 @@
+[package]
+name = "hotworx-api"
+version = "0.1.0"
+edition = "2021"
+description = "Unaffiliated, unofficial Rust client for the HOTWORX member API"
+authors = ["Nader Heidari"]
+license = "MIT"
+publish = false
+repository = "https://github.com/nukleas/bookworx"
+readme = "README.md"
+keywords = ["hotworx", "fitness", "client", "api"]
+categories = ["api-bindings"]
+
+[dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+hex = "0.4"
+thiserror = "2"
+urlencoding = "2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }
+wiremock = "0.6"
