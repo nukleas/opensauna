@@ -18,13 +18,7 @@ build their own HOTWORX tools without re-implementing the wire protocol.
 
 ## Disclaimer
 
-Unaffiliated, unofficial, not endorsed by HOTWORX. Every line of code that
-touches your credentials is readable here. Use at your own risk.
-
-Your password is SHA-256 hashed before it leaves your machine — the same way
-the official app handles it. BookWorx never sees or stores your plaintext
-password. Auth tokens at rest are encrypted with AES-256-GCM keyed off a
-per-install device ID.
+Not affiliated with HOTWORX. Provided as-is, without warranty — see [LICENSE](LICENSE).
 
 ## Screenshots
 
