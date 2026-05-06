@@ -63,11 +63,10 @@ pub fn BookingPage() -> impl IntoView {
                 loc_id, date
             ));
 
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+            let args = crate::json_args!({
                 "locationId": loc_id,
-                "selectedDate": date
-            }))
-            .unwrap();
+                "selectedDate": date,
+            });
 
             let promise = invoke("api_get_session_types", args);
 
@@ -126,12 +125,11 @@ pub fn BookingPage() -> impl IntoView {
                 loc_id, session_type_name, date
             ));
 
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+            let args = crate::json_args!({
                 "bookingDate": date,
                 "locationId": loc_id,
-                "sessionType": session_type_name
-            }))
-            .unwrap();
+                "sessionType": session_type_name,
+            });
 
             let promise = invoke("api_show_slots", args);
 
@@ -185,8 +183,7 @@ pub fn BookingPage() -> impl IntoView {
                 })
                 .collect();
 
-            let outcome =
-                book_slots(auth, toast, bookables, loc_id, date, booking_progress).await;
+            let outcome = book_slots(auth, toast, bookables, loc_id, date, booking_progress).await;
 
             if outcome.all_succeeded() {
                 success_msg.set(Some(format!(
@@ -293,7 +290,7 @@ pub fn BookingPage() -> impl IntoView {
                                         let loc = loc_id.clone();
                                         wasm_bindgen_futures::spawn_local(async move {
                                             // Get location name for storing
-                                            let loc_args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+                                            let loc_args = crate::json_args!({});
                                             let loc_name = match JsFuture::from(invoke("get_preferred_location", loc_args)).await {
                                                 Ok(result) => {
                                                     serde_wasm_bindgen::from_value::<Option<(String, String)>>(result)
@@ -307,18 +304,18 @@ pub fn BookingPage() -> impl IntoView {
 
                                             // Store preferred location if we have it
                                             if !loc.is_empty() && !loc_name.is_empty() {
-                                                let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                                                let args = crate::json_args!({
                                                     "locationId": loc,
-                                                    "locationName": loc_name
-                                                })).unwrap();
+                                                    "locationName": loc_name,
+                                                });
                                                 let _ = JsFuture::from(invoke("store_preferred_location", args)).await;
                                             }
 
                                             // Store preferred session type
-                                            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                                            let args = crate::json_args!({
                                                 "sessionType": type_value,
-                                                "sessionTypeDisplay": type_display
-                                            })).unwrap();
+                                                "sessionTypeDisplay": type_display,
+                                            });
                                             match JsFuture::from(invoke("store_preferred_session_type", args)).await {
                                                 Ok(_) => log("[Booking] Saved favorite session type"),
                                                 Err(e) => log(&format!("[Booking] Failed to save favorite: {:?}", e)),

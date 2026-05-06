@@ -5,24 +5,31 @@ use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
-/// Card displaying a single session (pending or completed) with optional cancel/start actions.
+/// Card displaying a single session.
+///
+/// Buttons are rendered conditionally on which callbacks the parent
+/// passes in:
+///
+/// - `on_cancel: Some(...)` adds a "Cancel" button that walks the user
+///   through a confirm prompt; the callback fires once the API
+///   confirms cancellation, with the session record ID as its argument.
+/// - `on_start: Some(...)` adds a "Start Session" button that fires
+///   the callback with the full session payload.
+///
+/// Pass neither for a read-only card (e.g. completed sessions).
 #[component]
 pub fn SessionCard(
     session: PendingSession,
-    #[prop(optional)] show_cancel: bool,
-    #[prop(optional)] show_start: bool,
-    #[prop(optional)] on_cancelled: Option<WriteSignal<Option<String>>>,
-    #[prop(optional)] on_start: Option<WriteSignal<Option<PendingSession>>>,
+    #[prop(optional)] on_cancel: Option<Callback<String>>,
+    #[prop(optional)] on_start: Option<Callback<PendingSession>>,
 ) -> impl IntoView {
     let auth = use_auth_state();
     let toast = use_toast();
-    // Clone session for the start button callback
     let session_for_start = session.clone();
     let confirming = RwSignal::new(false);
     let cancelling = RwSignal::new(false);
     let error_msg: RwSignal<Option<String>> = RwSignal::new(None);
 
-    // Store IDs for the cancel action - clone for use in multiple closures
     let session_id = session.session_record_id.clone().unwrap_or_default();
     let lead_id = session.lead_record_id.clone().unwrap_or_default();
 
@@ -48,12 +55,11 @@ pub fn SessionCard(
                 {session.duration.clone().map(|d| view! { <p class="session-duration">{d} " mins"</p> })}
             </div>
 
-            // Error message
             {move || error_msg.get().map(|e| view! {
                 <div class="error-message session-card-error">{e}</div>
             })}
 
-            // Show confirm buttons when confirming
+            // Cancel-confirm prompt
             {
                 let sid = session_id.clone();
                 let lid = lead_id.clone();
@@ -82,28 +88,23 @@ pub fn SessionCard(
                                                 wasm_bindgen_futures::spawn_local(async move {
                                                     log(&format!("[SessionCard] Cancelling session {}", sid));
 
-                                                    let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                                                    let args = crate::json_args!({
                                                         "sessionRecordId": sid.clone(),
-                                                        "leadRecordId": lid
-                                                    })).unwrap();
+                                                        "leadRecordId": lid,
+                                                    });
 
-                                                    let promise = invoke("api_delete_session", args);
-
-                                                    match JsFuture::from(promise).await {
+                                                    match JsFuture::from(invoke("api_delete_session", args)).await {
                                                         Ok(_) => {
                                                             log("[SessionCard] Session cancelled successfully");
-                                                            if let Some(signal) = on_cancelled {
-                                                                signal.set(Some(sid));
+                                                            if let Some(cb) = on_cancel {
+                                                                cb.run(sid);
                                                             }
                                                         }
                                                         Err(e) => {
                                                             log(&format!("[SessionCard] Cancel error: {:?}", e));
-                                                            if handle_invoke_error(&e, auth, toast).await {
-                                                                cancelling.set(false);
-                                                                confirming.set(false);
-                                                                return;
+                                                            if !handle_invoke_error(&e, auth, toast).await {
+                                                                error_msg.set(Some("Failed to cancel session.".to_string()));
                                                             }
-                                                            error_msg.set(Some("Failed to cancel session.".to_string()));
                                                             cancelling.set(false);
                                                             confirming.set(false);
                                                         }
@@ -128,7 +129,7 @@ pub fn SessionCard(
                 }
             }
 
-            // Session action buttons
+            // Action buttons (start, cancel)
             {
                 let session_clone = session_for_start.clone();
                 move || {
@@ -137,25 +138,19 @@ pub fn SessionCard(
                         let session_clone = session_clone.clone();
                         view! {
                             <div class="session-actions">
-                                // Start button
-                                {show_start.then(|| {
+                                {on_start.map(|cb| {
                                     let session_clone = session_clone.clone();
                                     view! {
                                         <button
                                             class="session-start-btn"
-                                            on:click=move |_| {
-                                                if let Some(signal) = on_start {
-                                                    signal.set(Some(session_clone.clone()));
-                                                }
-                                            }
+                                            on:click=move |_| cb.run(session_clone.clone())
                                         >
                                             "Start Session"
                                         </button>
                                     }
                                 })}
 
-                                // Cancel button
-                                {show_cancel.then(|| view! {
+                                {on_cancel.map(|_| view! {
                                     <button
                                         class="session-cancel-btn"
                                         on:click=move |_| confirming.set(true)

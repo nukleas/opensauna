@@ -24,7 +24,7 @@ pub fn LocationsPage() -> impl IntoView {
         wasm_bindgen_futures::spawn_local(async move {
             // First check for saved preferred location
             log("[Locations] Checking for preferred location...");
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+            let args = crate::json_args!({});
             let promise = invoke("get_preferred_location", args);
 
             if let Ok(result) = JsFuture::from(promise).await {
@@ -41,7 +41,7 @@ pub fn LocationsPage() -> impl IntoView {
 
             // Then fetch all locations
             log("[Locations] Fetching locations...");
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+            let args = crate::json_args!({});
             let promise = invoke("api_get_locations", args);
 
             match JsFuture::from(promise).await {
@@ -89,11 +89,10 @@ pub fn LocationsPage() -> impl IntoView {
         let name = location_name.clone();
         wasm_bindgen_futures::spawn_local(async move {
             log(&format!("[Locations] Saving preferred location: {}", name));
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+            let args = crate::json_args!({
                 "locationId": id,
-                "locationName": name
-            }))
-            .unwrap();
+                "locationName": name,
+            });
             let _ = JsFuture::from(invoke("store_preferred_location", args)).await;
         });
 

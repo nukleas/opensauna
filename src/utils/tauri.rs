@@ -49,6 +49,21 @@ pub fn to_args<T: Serialize>(value: &T) -> Result<JsValue, String> {
     serde_wasm_bindgen::to_value(value).map_err(|e| format!("Failed to serialize args: {:?}", e))
 }
 
+/// Build Tauri command arguments from a `serde_json::json!(...)` literal.
+///
+/// `serde_wasm_bindgen` only fails for serializers that can't represent
+/// the input shape — and `serde_json::Value` has no representation that
+/// JS can't model. So this is mathematically infallible; we still go
+/// through `expect` rather than a silent unwrap so the panic message
+/// makes the invariant explicit.
+#[macro_export]
+macro_rules! json_args {
+    ($($json:tt)+) => {{
+        $crate::utils::tauri::to_args(&::serde_json::json!($($json)+))
+            .expect("serde_json::Value -> JsValue conversion is infallible")
+    }};
+}
+
 /// Invoke a Tauri command with already-serialized arguments. Returns the
 /// command's return value parsed into `R`.
 ///

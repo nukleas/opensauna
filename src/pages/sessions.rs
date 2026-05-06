@@ -40,21 +40,15 @@ pub fn SessionsPage() -> impl IntoView {
     let loading = RwSignal::new(true);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
 
-    // Signal to track which session was cancelled (set by SessionCard)
-    let (cancelled_session, set_cancelled_session) = signal::<Option<String>>(None);
-
-    // Remove cancelled session from list when signal changes
-    Effect::new(move |_| {
-        if let Some(session_id) = cancelled_session.get() {
-            log(&format!(
-                "[Sessions] Removing cancelled session: {}",
-                session_id
-            ));
-            pending_sessions.update(|sessions| {
-                sessions.retain(|s| s.session_record_id.as_deref() != Some(&session_id));
-            });
-            set_cancelled_session.set(None);
-        }
+    // Remove a cancelled session from the upcoming list.
+    let on_session_cancelled = Callback::new(move |session_id: String| {
+        log(&format!(
+            "[Sessions] Removing cancelled session: {}",
+            session_id
+        ));
+        pending_sessions.update(|sessions| {
+            sessions.retain(|s| s.session_record_id.as_deref() != Some(&session_id));
+        });
     });
 
     // Fetch sessions on mount via Tauri backend
@@ -66,7 +60,7 @@ pub fn SessionsPage() -> impl IntoView {
                 &serde_json::json!({ "currentDate": get_today_date() }),
             )
             .unwrap();
-            let empty_args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+            let empty_args = crate::json_args!({});
 
             // Fetch dashboard data for today's sessions
             let dashboard_promise = invoke("api_get_dashboard", dashboard_args.clone());
@@ -151,11 +145,10 @@ pub fn SessionsPage() -> impl IntoView {
             log("[Sessions] Fetching activity history from API...");
 
             // Pass empty session_type for all types (Android app uses "" not "all")
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+            let args = crate::json_args!({
                 "pageNo": 1,
                 "pageLimit": 100,
-            }))
-            .unwrap();
+            });
             let promise = invoke("api_get_activity_history", args);
 
             match JsFuture::from(promise).await {
@@ -179,7 +172,7 @@ pub fn SessionsPage() -> impl IntoView {
                         return;
                     }
                     // Fall back to local storage
-                    let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+                    let args = crate::json_args!({});
                     let promise = invoke("get_session_history", args);
                     if let Ok(result) = JsFuture::from(promise).await {
                         if let Ok(history) =
@@ -222,8 +215,7 @@ pub fn SessionsPage() -> impl IntoView {
                                         view! {
                                             <SessionCard
                                                 session=session
-                                                show_cancel=true
-                                                on_cancelled=set_cancelled_session
+                                                on_cancel=on_session_cancelled
                                             />
                                         }
                                     }).collect::<Vec<_>>()}

@@ -44,7 +44,7 @@ pub fn ProfilePage() -> impl IntoView {
         wasm_bindgen_futures::spawn_local(async move {
             log("[Profile] Fetching profile data...");
 
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+            let args = crate::json_args!({});
             let promise = invoke("api_view_profile", args);
 
             match JsFuture::from(promise).await {
@@ -86,7 +86,7 @@ pub fn ProfilePage() -> impl IntoView {
     // Fetch calorie stats
     Effect::new(move |_| {
         wasm_bindgen_futures::spawn_local(async move {
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+            let args = crate::json_args!({});
             let promise = invoke("api_get_calorie_stats", args);
 
             match JsFuture::from(promise).await {
@@ -113,7 +113,7 @@ pub fn ProfilePage() -> impl IntoView {
     // Fetch goals
     Effect::new(move |_| {
         wasm_bindgen_futures::spawn_local(async move {
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+            let args = crate::json_args!({});
             let promise = invoke("api_view_goals", args);
 
             match JsFuture::from(promise).await {
@@ -154,7 +154,7 @@ pub fn ProfilePage() -> impl IntoView {
         save_message.set(None);
 
         wasm_bindgen_futures::spawn_local(async move {
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+            let args = crate::json_args!({
                 "firstName": edit_first_name.get(),
                 "lastName": edit_last_name.get(),
                 "dob": edit_dob.get(),
@@ -162,8 +162,7 @@ pub fn ProfilePage() -> impl IntoView {
                 "height": edit_height.get(),
                 "weight": edit_weight.get(),
                 "address": edit_address.get(),
-            }))
-            .unwrap();
+            });
 
             let promise = invoke("api_update_profile", args);
 
@@ -173,7 +172,7 @@ pub fn ProfilePage() -> impl IntoView {
                     editing_profile.set(false);
 
                     // Refresh profile data
-                    let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+                    let args = crate::json_args!({});
                     let promise = invoke("api_view_profile", args);
                     if let Ok(result) = JsFuture::from(promise).await {
                         if let Ok(response) =
@@ -224,13 +223,12 @@ pub fn ProfilePage() -> impl IntoView {
         save_message.set(None);
 
         wasm_bindgen_futures::spawn_local(async move {
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+            let args = crate::json_args!({
                 "currentWeight": edit_current_weight.get(),
                 "targetWeight": edit_target_weight.get(),
                 "targetWeightGoalDate": edit_goal_date.get(),
                 "weeklySessionGoal": edit_weekly_sessions.get(),
-            }))
-            .unwrap();
+            });
 
             let promise = invoke("api_update_goals", args);
 
@@ -240,7 +238,7 @@ pub fn ProfilePage() -> impl IntoView {
                     editing_goals.set(false);
 
                     // Refresh goals data
-                    let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+                    let args = crate::json_args!({});
                     let promise = invoke("api_view_goals", args);
                     if let Ok(result) = JsFuture::from(promise).await {
                         if let Ok(response) =

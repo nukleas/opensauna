@@ -41,12 +41,6 @@ pub fn DashboardPage() -> impl IntoView {
     let has_quick_book_prefs = RwSignal::new(false);
     let quick_book_session_type = RwSignal::new(String::new());
 
-    // Signal to track which session was cancelled (set by SessionCard)
-    let (cancelled_session, set_cancelled_session) = signal::<Option<String>>(None);
-
-    // Signal to track which session should start (set by SessionCard)
-    let (start_session, set_start_session) = signal::<Option<PendingSession>>(None);
-
     // Restore active session on mount
     Effect::new(move |_| {
         wasm_bindgen_futures::spawn_local(async move {
@@ -54,40 +48,33 @@ pub fn DashboardPage() -> impl IntoView {
         });
     });
 
-    // Handle start session signal
-    Effect::new(move |_| {
-        if let Some(pending) = start_session.get() {
-            log(&format!(
-                "[Dashboard] Starting session: {:?}",
-                pending.session_record_id
-            ));
-            set_start_session.set(None);
-
-            wasm_bindgen_futures::spawn_local(async move {
-                match session_state.start_session(&pending).await {
-                    Ok(()) => log("[Dashboard] Session started successfully"),
-                    Err(e) => log(&format!("[Dashboard] Failed to start session: {}", e)),
+    // Drop a cancelled session from the displayed dashboard.
+    let on_session_cancelled = Callback::new(move |session_id: String| {
+        log(&format!(
+            "[Dashboard] Removing cancelled session: {}",
+            session_id
+        ));
+        dashboard_data.update(|data| {
+            if let Some(ref mut d) = data {
+                if let Some(ref mut sessions) = d.todays_pending_sessions {
+                    sessions.retain(|s| s.session_record_id.as_deref() != Some(&session_id));
                 }
-            });
-        }
+            }
+        });
     });
 
-    // Remove cancelled session from dashboard data when signal changes
-    Effect::new(move |_| {
-        if let Some(session_id) = cancelled_session.get() {
-            log(&format!(
-                "[Dashboard] Removing cancelled session: {}",
-                session_id
-            ));
-            dashboard_data.update(|data| {
-                if let Some(ref mut d) = data {
-                    if let Some(ref mut sessions) = d.todays_pending_sessions {
-                        sessions.retain(|s| s.session_record_id.as_deref() != Some(&session_id));
-                    }
-                }
-            });
-            set_cancelled_session.set(None);
-        }
+    // Begin tracking a session the user just hit "Start" on.
+    let on_session_started = Callback::new(move |pending: PendingSession| {
+        log(&format!(
+            "[Dashboard] Starting session: {:?}",
+            pending.session_record_id
+        ));
+        wasm_bindgen_futures::spawn_local(async move {
+            match session_state.start_session(&pending).await {
+                Ok(()) => log("[Dashboard] Session started successfully"),
+                Err(e) => log(&format!("[Dashboard] Failed to start session: {}", e)),
+            }
+        });
     });
 
     // Fetch dashboard data on mount via Tauri backend
@@ -148,7 +135,7 @@ pub fn DashboardPage() -> impl IntoView {
         wasm_bindgen_futures::spawn_local(async move {
             log("[Dashboard] Fetching all upcoming sessions...");
 
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+            let args = crate::json_args!({});
             let promise = invoke("api_get_upcoming_sessions", args);
 
             match JsFuture::from(promise).await {
@@ -175,7 +162,7 @@ pub fn DashboardPage() -> impl IntoView {
     // Check for quick book preferences
     Effect::new(move |_| {
         wasm_bindgen_futures::spawn_local(async move {
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+            let args = crate::json_args!({});
 
             // Check for preferred location
             let loc_promise = invoke("get_preferred_location", args.clone());
@@ -326,10 +313,8 @@ pub fn DashboardPage() -> impl IntoView {
                                                     view! {
                                                         <SessionCard
                                                             session=session
-                                                            show_cancel=true
-                                                            show_start=true
-                                                            on_cancelled=set_cancelled_session
-                                                            on_start=set_start_session
+                                                            on_cancel=on_session_cancelled
+                                                            on_start=on_session_started
                                                         />
                                                     }
                                                 }).collect::<Vec<_>>()}

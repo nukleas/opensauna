@@ -39,11 +39,10 @@ pub fn LoginPage() -> impl IntoView {
             log("[Login] Attempting login...");
 
             // Call backend API command
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+            let args = crate::json_args!({
                 "email": email_val.clone(),
-                "password": password_val.clone()
-            }))
-            .unwrap();
+                "password": password_val.clone(),
+            });
 
             let promise = invoke("api_login_with_password", args);
             match JsFuture::from(promise).await {
@@ -62,12 +61,11 @@ pub fn LoginPage() -> impl IntoView {
                     if response.requires_otp() {
                         // Store credentials in Tauri store for OTP verification (survives page nav)
                         if let Some(token) = response.token {
-                            let store_args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                            let store_args = crate::json_args!({
                                 "email": email_val,
                                 "password": password_val,
-                                "token": token
-                            }))
-                            .unwrap();
+                                "token": token,
+                            });
                             let _ = JsFuture::from(invoke("store_pending_login", store_args)).await;
                             navigate_to("/otp");
                         }

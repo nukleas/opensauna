@@ -141,7 +141,7 @@ impl SessionTrackingState {
     pub async fn restore_session(&self) {
         self.loading.set(true);
 
-        let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+        let args = crate::json_args!({});
 
         match JsFuture::from(invoke("get_active_session", args)).await {
             Ok(result) => {

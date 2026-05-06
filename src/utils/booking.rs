@@ -67,14 +67,13 @@ pub async fn book_slots(
             date
         ));
 
-        let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+        let args = crate::json_args!({
             "saunaNo": sauna_no,
             "timeSlot": time_slot,
             "bookingDate": date,
             "sessionType": session_type,
             "locationId": location_id,
-        }))
-        .unwrap();
+        });
 
         match JsFuture::from(invoke("api_book_session", args)).await {
             Ok(result) => {

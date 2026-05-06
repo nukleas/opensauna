@@ -35,7 +35,7 @@ pub fn QuickBookPage() -> impl IntoView {
         wasm_bindgen_futures::spawn_local(async move {
             log("[QuickBook] Loading preferences...");
 
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+            let args = crate::json_args!({});
 
             // Get preferred location
             let loc_promise = invoke("get_preferred_location", args.clone());
@@ -97,12 +97,11 @@ pub fn QuickBookPage() -> impl IntoView {
                 loc_id, type_value, date
             ));
 
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+            let args = crate::json_args!({
                 "bookingDate": date,
                 "locationId": loc_id,
-                "sessionType": type_value
-            }))
-            .unwrap();
+                "sessionType": type_value,
+            });
 
             let promise = invoke("api_show_slots", args);
 
@@ -161,8 +160,7 @@ pub fn QuickBookPage() -> impl IntoView {
                 })
                 .collect();
 
-            let outcome =
-                book_slots(auth, toast, bookables, loc_id, date, booking_progress).await;
+            let outcome = book_slots(auth, toast, bookables, loc_id, date, booking_progress).await;
 
             if outcome.all_succeeded() {
                 log(&format!(

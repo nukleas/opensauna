@@ -33,7 +33,7 @@ pub fn OtpPage() -> impl IntoView {
 
         wasm_bindgen_futures::spawn_local(async move {
             // Get pending login data from Tauri store
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+            let args = crate::json_args!({});
             let pending_result = JsFuture::from(invoke("get_pending_login", args)).await;
 
             let pending_data: Option<PendingLoginData> = match pending_result {
@@ -51,13 +51,12 @@ pub fn OtpPage() -> impl IntoView {
             log(&format!("[OTP] Verifying OTP for: {}", email));
 
             // Call backend API command
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+            let args = crate::json_args!({
                 "email": email,
                 "password": password,
                 "otp": otp_val,
-                "token": token
-            }))
-            .unwrap();
+                "token": token,
+            });
 
             let promise = invoke("api_verify_otp", args);
             match JsFuture::from(promise).await {
@@ -75,8 +74,7 @@ pub fn OtpPage() -> impl IntoView {
 
                     if let Some(token) = response.token {
                         // Clear pending login from store
-                        let clear_args =
-                            serde_wasm_bindgen::to_value(&serde_json::json!({})).unwrap();
+                        let clear_args = crate::json_args!({});
                         let _ = JsFuture::from(invoke("clear_pending_login", clear_args)).await;
                         // Store auth token
                         auth.set_token(token).await;
