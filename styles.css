@@ -639,12 +639,34 @@ body {
 }
 
 /* ===== Dashboard & Pages ===== */
-.dashboard-page, .locations-page, .booking-page, .sessions-page {
+.dashboard-page,
+.locations-page,
+.booking-page,
+.sessions-page,
+.profile-page,
+.quick-book-page {
   min-height: 100vh;
+  background: var(--background);
   padding: var(--spacing-5);
   padding-top: calc(var(--spacing-6) + env(safe-area-inset-top));
   padding-bottom: calc(6rem + env(safe-area-inset-bottom));
-  background: var(--background);
+}
+
+/* On wider Tauri/desktop windows, keep content readable by capping width
+   and centring. Mobile webviews are usually narrower than this max anyway,
+   so the rule is a no-op there. */
+@media (min-width: 720px) {
+  .dashboard-page,
+  .locations-page,
+  .booking-page,
+  .sessions-page,
+  .profile-page,
+  .quick-book-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding-left: var(--spacing-6);
+    padding-right: var(--spacing-6);
+  }
 }
 
 .dashboard-header, .locations-header, .booking-header, .sessions-header {
@@ -1996,14 +2018,20 @@ body {
 }
 
 /* ===== Profile Page ===== */
-.profile-page {
-  min-height: 100vh;
-  background: var(--background);
-  padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+/* Layout (padding, min-height, max-width) is shared with the other pages
+   via the rule that lists `.profile-page` alongside dashboard/etc. above. */
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-8);
 }
 
 .profile-content {
-  padding: 0 var(--spacing-4) var(--spacing-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
 }
 
 .profile-avatar {
