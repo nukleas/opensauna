@@ -134,8 +134,23 @@ impl HotworxClient {
 
     /// List the studio locations the member can book at.
     pub async fn get_locations(&self) -> Result<Vec<Location>> {
-        let env: Envelope<LocationsData> = self.get("booking/getBookingLocations_v2", true).await?;
-        Ok(env.into_data()?.locations.unwrap_or_default())
+        // HOTWORX has shipped this endpoint with two layouts over time:
+        // the standard `{ data: { locations: [...] } }` envelope, and a
+        // bare `{ locations: [...] }` at the top level. Accept either.
+        #[derive(Deserialize)]
+        struct LocationsResponse {
+            #[serde(default)]
+            data: Option<LocationsData>,
+            #[serde(default)]
+            locations: Option<Vec<Location>>,
+        }
+        let resp: LocationsResponse = self.get("booking/getBookingLocations_v2", true).await?;
+        let locs = resp
+            .data
+            .and_then(|d| d.locations)
+            .or(resp.locations)
+            .unwrap_or_default();
+        Ok(locs)
     }
 
     /// List the session types (e.g. `"HOT YOGA"`) available at a location

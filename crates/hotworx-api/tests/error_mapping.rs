@@ -152,6 +152,49 @@ async fn show_slots_accepts_bare_array() {
 }
 
 #[tokio::test]
+async fn get_locations_accepts_top_level_shape() {
+    // HOTWORX returns this endpoint without the standard `data` envelope:
+    // `{ locations: [...] }` directly.
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/booking/getBookingLocations_v2"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "locations": [
+                { "location_id": "12345", "location_name": "Rancho Santa Margarita, CA" }
+            ]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    let locs = client.get_locations().await.unwrap();
+    assert_eq!(locs.len(), 1);
+    assert_eq!(locs[0].location_name, "Rancho Santa Margarita, CA");
+    assert_eq!(locs[0].location_id, "12345");
+}
+
+#[tokio::test]
+async fn get_locations_accepts_data_wrapped_shape() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/booking/getBookingLocations_v2"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": {
+                "locations": [
+                    { "location_id": "67890", "location_name": "Irvine, CA" }
+                ]
+            }
+        })))
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    let locs = client.get_locations().await.unwrap();
+    assert_eq!(locs.len(), 1);
+    assert_eq!(locs[0].location_name, "Irvine, CA");
+}
+
+#[tokio::test]
 async fn show_slots_accepts_data_wrapped_form() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
