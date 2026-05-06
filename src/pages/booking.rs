@@ -447,7 +447,7 @@ pub fn BookingPage() -> impl IntoView {
                                 <div class="progress-bar">
                                     <div
                                         class="progress-fill"
-                                        style=move || format!("width: {}%", if t > 0 { p * 100 / t } else { 0 })
+                                        style=move || format!("width: {}%", (p * 100).checked_div(t).unwrap_or(0))
                                     />
                                 </div>
                                 <span class="progress-text">{format!("Booking {} of {}...", p + 1, t)}</span>
