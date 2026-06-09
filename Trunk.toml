@@ -2,7 +2,11 @@
 target = "./index.html"
 
 [watch]
-ignore = ["./src-tauri"]
+# Ignore build outputs and tooling scratch dirs. In particular, browser
+# automation (Playwright MCP) streams the app's console output into
+# ./.playwright-mcp, which would otherwise trigger an endless rebuild/reload
+# loop while a browser is pointed at the dev server.
+ignore = ["./src-tauri", "./dist", "./target", "./.playwright-mcp"]
 
 [serve]
 port = 1420
