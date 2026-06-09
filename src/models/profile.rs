@@ -235,39 +235,29 @@ pub struct CalorieStatsData {
 }
 
 impl CalorieStatsData {
-    /// Total session count, defaults to "0".
+    /// Total session count (comma-grouped), defaults to "0".
     pub fn total_sessions_display(&self) -> String {
-        self.total_session
-            .clone()
-            .unwrap_or_else(|| "0".to_string())
+        crate::utils::format::with_commas(self.total_session.as_deref().unwrap_or("0"))
     }
 
-    /// Total calories burned (lifetime), defaults to "0".
+    /// Total calories burned (lifetime, comma-grouped), defaults to "0".
     pub fn total_calories_display(&self) -> String {
-        self.total_calories_burned
-            .clone()
-            .unwrap_or_else(|| "0".to_string())
+        crate::utils::format::with_commas(self.total_calories_burned.as_deref().unwrap_or("0"))
     }
 
-    /// Workout-only calories (excluding afterburn), defaults to "0".
+    /// Workout-only calories (excluding afterburn, comma-grouped), defaults to "0".
     pub fn workout_calories_display(&self) -> String {
-        self.workout_calories_burned
-            .clone()
-            .unwrap_or_else(|| "0".to_string())
+        crate::utils::format::with_commas(self.workout_calories_burned.as_deref().unwrap_or("0"))
     }
 
-    /// Afterburn (EPOC) calories, defaults to "0".
+    /// Afterburn (EPOC) calories (comma-grouped), defaults to "0".
     pub fn afterburn_display(&self) -> String {
-        self.total_one_hour_burned
-            .clone()
-            .unwrap_or_else(|| "0".to_string())
+        crate::utils::format::with_commas(self.total_one_hour_burned.as_deref().unwrap_or("0"))
     }
 
-    /// Average calories per session, defaults to "0".
+    /// Average calories per session (comma-grouped), defaults to "0".
     pub fn avg_calories_display(&self) -> String {
-        self.avg_calorie_burned
-            .clone()
-            .unwrap_or_else(|| "0".to_string())
+        crate::utils::format::with_commas(self.avg_calorie_burned.as_deref().unwrap_or("0"))
     }
 }
 

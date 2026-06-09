@@ -2,5 +2,6 @@
 
 pub mod booking;
 pub mod dates;
+pub mod format;
 pub mod nav;
 pub mod tauri;

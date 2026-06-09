@@ -64,7 +64,7 @@ pub fn ActiveSessionView(
     // Estimate calories burned (rough estimate: ~10 cal/min for hot yoga)
     let estimated_calories = move || {
         let mins = elapsed_seconds.get() / 60;
-        mins * 10
+        crate::utils::format::commas_i64(mins * 10)
     };
 
     let end_session = move || {
