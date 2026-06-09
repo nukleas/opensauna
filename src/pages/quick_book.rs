@@ -3,7 +3,7 @@ use crate::components::{BottomNav, Button, IconChevronLeft, NavItem, PageLoading
 use crate::models::booking::TimeSlot;
 use crate::state::{handle_invoke_error, use_auth_state};
 use crate::utils::booking::{book_slots, BookableSlot};
-use crate::utils::dates::{max_booking_date as get_max_date, today as get_today_date};
+use crate::utils::dates::{bookable_days, today as get_today_date};
 use crate::utils::nav::go as navigate_to;
 use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
@@ -238,14 +238,19 @@ pub fn QuickBookPage() -> impl IntoView {
                             // Date picker
                             <div class="date-picker">
                                 <label>"Select Date"</label>
-                                <input
-                                    type="date"
-                                    class="date-input"
-                                    min=get_today_date()
-                                    max=get_max_date()
-                                    prop:value=move || selected_date.get()
-                                    on:input=move |ev| selected_date.set(event_target_value(&ev))
-                                />
+                                <div class="date-pills">
+                                    {bookable_days().into_iter().map(|(ymd, label)| {
+                                        let ymd_sel = ymd.clone();
+                                        view! {
+                                            <button
+                                                class=move || if selected_date.get() == ymd_sel { "date-pill active" } else { "date-pill" }
+                                                on:click=move |_| selected_date.set(ymd.clone())
+                                            >
+                                                {label}
+                                            </button>
+                                        }
+                                    }).collect::<Vec<_>>()}
+                                </div>
                             </div>
 
                             // Time slots (multi-select)

@@ -48,23 +48,41 @@ pub fn OtpInput(
     let length = length.unwrap_or(6);
 
     view! {
-        <div class="otp-input-group">
+        // A single (visually hidden) input overlays the box row and owns the
+        // value; the boxes below just render its digits. This gets the 6-box
+        // look without juggling focus across six separate inputs.
+        <div class="otp-boxes">
             <input
+                class="otp-hidden-input"
                 type="text"
-                class="otp-input"
                 maxlength=length
-                placeholder="------"
                 aria-label="6-digit verification code"
                 inputmode="numeric"
                 autocomplete="one-time-code"
                 prop:value=move || value.get()
                 on:input=move |ev| {
-                    let v = event_target_value(&ev);
-                    // Only allow digits
-                    let digits: String = v.chars().filter(|c| c.is_ascii_digit()).collect();
+                    let digits: String = event_target_value(&ev)
+                        .chars()
+                        .filter(|c| c.is_ascii_digit())
+                        .take(length)
+                        .collect();
                     value.set(digits);
                 }
             />
+            <div class="otp-box-row" aria-hidden="true">
+                {(0..length).map(|i| {
+                    view! {
+                        <div class=move || {
+                            let len = value.get().chars().count();
+                            if i < len { "otp-box filled" }
+                            else if i == len { "otp-box active" }
+                            else { "otp-box" }
+                        }>
+                            {move || value.get().chars().nth(i).map(|c| c.to_string()).unwrap_or_default()}
+                        </div>
+                    }
+                }).collect::<Vec<_>>()}
+            </div>
         </div>
     }
 }
