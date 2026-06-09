@@ -96,6 +96,7 @@ pub fn SessionCard(
                                                     match JsFuture::from(invoke("api_delete_session", args)).await {
                                                         Ok(_) => {
                                                             log("[SessionCard] Session cancelled successfully");
+                                                            toast.success("Session cancelled");
                                                             if let Some(cb) = on_cancel {
                                                                 cb.run(sid);
                                                             }

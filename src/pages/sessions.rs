@@ -28,14 +28,82 @@ struct ActivityHistoryResponse {
     activities: Vec<serde_json::Value>,
 }
 
+/// True if an activity entry's start date falls on `today_ymd` (`YYYY-MM-DD`).
+/// `start_date_time` arrives as e.g. `"2026-06-08 19:33:25"`.
+fn entry_is_today(entry: &serde_json::Value, today_ymd: &str) -> bool {
+    let starts_today = |key: &str| {
+        entry
+            .get(key)
+            .and_then(|v| v.as_str())
+            .map(|s| s.starts_with(today_ymd))
+            .unwrap_or(false)
+    };
+    starts_today("start_date_time") || starts_today("date")
+}
+
+/// Render one activity-history entry as a card. Shared by "Completed Today"
+/// (history filtered to today) and the full history list, so the two can never
+/// disagree about what happened today.
+fn history_card(entry: &serde_json::Value) -> impl IntoView {
+    let get_str = |key: &str| entry.get(key).and_then(|v| v.as_str());
+    let session_name = get_str("workout_type")
+        .or_else(|| get_str("session_name"))
+        .unwrap_or("Session")
+        .to_string();
+    let location = get_str("location_name").unwrap_or("").to_string();
+    let calories = get_str("total_burnt")
+        .or_else(|| get_str("cal_burnt"))
+        .map(|c| {
+            let c = c.trim();
+            if c.is_empty() {
+                "--".to_string()
+            } else if c.contains(char::is_alphabetic) {
+                c.to_string() // already has units, e.g. "192 Cal"
+            } else {
+                format!("{} cal", c)
+            }
+        })
+        .unwrap_or_else(|| "--".to_string());
+
+    let raw_date = get_str("display_date")
+        .or_else(|| get_str("date"))
+        .unwrap_or("")
+        .to_string();
+    let time = get_str("start_date_time")
+        .and_then(|dt| dt.split(' ').nth(1))
+        .unwrap_or("")
+        .to_string();
+    // `display_date` often already includes the time (e.g. "...19:33:25"), so
+    // only append the time when the date string doesn't already carry one.
+    let date_line = if raw_date.contains(':') || time.is_empty() {
+        raw_date
+    } else {
+        format!("{} at {}", raw_date, time)
+    };
+
+    view! {
+        <div class="history-card">
+            <div class="history-card-header">
+                <span class="history-session-name">{session_name}</span>
+                <span class="history-calories">{calories}</span>
+            </div>
+            <div class="history-card-details">
+                <span class="history-location">{location}</span>
+                <span class="history-date">{date_line}</span>
+            </div>
+        </div>
+    }
+}
+
 /// Activity history page with upcoming and completed sessions, filterable by date range.
 #[component]
 pub fn SessionsPage() -> impl IntoView {
     let auth = use_auth_state();
     let toast = use_toast();
     let pending_sessions: RwSignal<Vec<PendingSession>> = RwSignal::new(Vec::new());
-    let completed_sessions: RwSignal<Vec<PendingSession>> = RwSignal::new(Vec::new());
     let session_history: RwSignal<Vec<serde_json::Value>> = RwSignal::new(Vec::new());
+    // Distinguishes "history still loading" from "genuinely no history".
+    let history_loaded = RwSignal::new(false);
     let history_filter = RwSignal::new("7days".to_string()); // "7days", "30days", "all"
     let loading = RwSignal::new(true);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
@@ -56,41 +124,10 @@ pub fn SessionsPage() -> impl IntoView {
         wasm_bindgen_futures::spawn_local(async move {
             log("[Sessions] Fetching sessions data...");
 
-            let dashboard_args = serde_wasm_bindgen::to_value(
-                &serde_json::json!({ "currentDate": get_today_date() }),
-            )
-            .unwrap();
-            let empty_args = crate::json_args!({});
-
-            // Fetch dashboard data for today's sessions
-            let dashboard_promise = invoke("api_get_dashboard", dashboard_args.clone());
-            // Fetch all upcoming sessions
-            let upcoming_promise = invoke("api_get_upcoming_sessions", empty_args);
-
-            // Today's completed sessions come from the dashboard endpoint.
-            match JsFuture::from(dashboard_promise).await {
-                Ok(result) => {
-                    if let Ok(env) =
-                        serde_wasm_bindgen::from_value::<ApiEnvelope<DashboardData>>(result)
-                    {
-                        if let Some(completed) = env.data.and_then(|d| d.todays_completed_sessions)
-                        {
-                            log(&format!(
-                                "[Sessions] {} completed sessions today",
-                                completed.len()
-                            ));
-                            completed_sessions.set(completed);
-                        }
-                    }
-                }
-                Err(e) => {
-                    log(&format!("[Sessions] Dashboard error: {:?}", e));
-                    if handle_invoke_error(&e, auth, toast).await {
-                        loading.set(false);
-                        return;
-                    }
-                }
-            }
+            // "Completed Today" is derived from the activity history below, so
+            // it can never disagree with the history list. Here we only need
+            // upcoming bookings.
+            let upcoming_promise = invoke("api_get_upcoming_sessions", crate::json_args!({}));
 
             // Upcoming bookings across the next few days.
             match JsFuture::from(upcoming_promise).await {
@@ -187,6 +224,7 @@ pub fn SessionsPage() -> impl IntoView {
                     }
                 }
             }
+            history_loaded.set(true);
         });
     });
 
@@ -225,21 +263,29 @@ pub fn SessionsPage() -> impl IntoView {
                     }}
                 </div>
 
-                // Completed sessions today
+                // Completed today — derived from the activity history so it
+                // always agrees with the history list below.
                 <div class="section">
                     <h2 class="section-title">"Completed Today"</h2>
                     {move || {
-                        let sessions = completed_sessions.get();
-                        if sessions.is_empty() {
+                        if !history_loaded.get() {
+                            return view! {
+                                <EmptySessionList message="Loading today's sessions...".to_string() />
+                            }.into_any();
+                        }
+                        let today = get_today_date();
+                        let today_sessions: Vec<_> = session_history.get()
+                            .into_iter()
+                            .filter(|e| entry_is_today(e, &today))
+                            .collect();
+                        if today_sessions.is_empty() {
                             view! {
                                 <EmptySessionList message="No completed sessions today".to_string() />
                             }.into_any()
                         } else {
                             view! {
-                                <div class="session-list">
-                                    {sessions.into_iter().map(|session| {
-                                        view! { <SessionCard session=session /> }
-                                    }).collect::<Vec<_>>()}
+                                <div class="history-list">
+                                    {today_sessions.iter().map(history_card).collect::<Vec<_>>()}
                                 </div>
                             }.into_any()
                         }
@@ -270,16 +316,16 @@ pub fn SessionsPage() -> impl IntoView {
                         </button>
                     </div>
                     {move || {
-                        let history = session_history.get();
                         let filter = history_filter.get();
+                        let history = session_history.get();
 
-                        if history.is_empty() {
+                        if !history_loaded.get() && history.is_empty() {
                             view! {
                                 <EmptySessionList message="Loading activity history...".to_string() />
                             }.into_any()
                         } else {
-                            // For now, show all and let API handle pagination
-                            // We'll filter client-side by keeping only recent entries
+                            // Client-side window over the loaded entries until the
+                            // endpoint supports true date-range filtering.
                             let filtered: Vec<_> = history.into_iter()
                                 .take(match filter.as_str() {
                                     "7days" => 20,   // Approx 2-3 sessions per day
@@ -290,67 +336,12 @@ pub fn SessionsPage() -> impl IntoView {
 
                             if filtered.is_empty() {
                                 view! {
-                                    <EmptySessionList message="No sessions in this time period".to_string() />
+                                    <EmptySessionList message="No session history yet".to_string() />
                                 }.into_any()
                             } else {
                                 view! {
                                     <div class="history-list">
-                                        {filtered.into_iter().map(|entry| {
-                                            // API fields: workout_type, total_burnt, display_date, location_name, start_date_time, end_date_time
-                                            let session_name = entry.get("workout_type")
-                                                .and_then(|v| v.as_str())
-                                                .or_else(|| entry.get("session_name").and_then(|v| v.as_str()))
-                                                .unwrap_or("Session")
-                                                .to_string();
-                                            let location = entry.get("location_name")
-                                                .and_then(|v| v.as_str())
-                                                .unwrap_or("")
-                                                .to_string();
-                                            // API returns total_burnt as "192 Cal" already formatted
-                                            let calories = entry.get("total_burnt")
-                                                .and_then(|v| v.as_str().or_else(|| v.as_i64().map(|_| "")))
-                                                .map(|c| {
-                                                    let c = c.trim();
-                                                    if c.is_empty() {
-                                                        "--".to_string()
-                                                    } else if c.contains(char::is_alphabetic) {
-                                                        c.to_string() // Already has units like "192 Cal"
-                                                    } else {
-                                                        format!("{} cal", c) // Raw number, add unit
-                                                    }
-                                                })
-                                                .unwrap_or_else(|| "--".to_string());
-                                            let date = entry.get("display_date")
-                                                .and_then(|v| v.as_str())
-                                                .or_else(|| entry.get("date").and_then(|v| v.as_str()))
-                                                .unwrap_or("")
-                                                .to_string();
-                                            // Get start time for display
-                                            let time = entry.get("start_date_time")
-                                                .and_then(|v| v.as_str())
-                                                .map(|dt| {
-                                                    // Extract time portion if full datetime
-                                                    if let Some(time_part) = dt.split(' ').nth(1) {
-                                                        time_part.to_string()
-                                                    } else {
-                                                        dt.to_string()
-                                                    }
-                                                })
-                                                .unwrap_or_default();
-
-                                            view! {
-                                                <div class="history-card">
-                                                    <div class="history-card-header">
-                                                        <span class="history-session-name">{session_name}</span>
-                                                        <span class="history-calories">{calories}</span>
-                                                    </div>
-                                                    <div class="history-card-details">
-                                                        <span class="history-location">{location}</span>
-                                                        <span class="history-date">{date}{if !time.is_empty() { format!(" at {}", time) } else { String::new() }}</span>
-                                                    </div>
-                                                </div>
-                                            }
-                                        }).collect::<Vec<_>>()}
+                                        {filtered.iter().map(history_card).collect::<Vec<_>>()}
                                     </div>
                                 }.into_any()
                             }

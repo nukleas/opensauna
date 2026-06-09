@@ -564,7 +564,7 @@ body {
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: 0.1em;
-  background: linear-gradient(135deg, var(--primary) 0%, hsl(35 100% 60%) 50%, var(--accent) 100%);
+  background: linear-gradient(135deg, hsl(40 100% 62%) 0%, var(--primary) 48%, hsl(8 82% 50%) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1937,6 +1937,22 @@ body {
   border-style: solid;
 }
 
+.set-favorite-btn:active {
+  transform: scale(0.985);
+}
+
+/* Saved state — solid, warm, unmistakably "done" */
+.set-favorite-btn.favorited {
+  background: var(--primary-glow);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  cursor: default;
+}
+
+.set-favorite-btn.favorited:active {
+  transform: none;
+}
+
 /* ===== Toast Notifications ===== */
 .toast {
   position: fixed;
@@ -2216,4 +2232,104 @@ body {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* ===== Tap feedback — press states for touch (added in UI polish pass) ===== */
+.session-type-card:active,
+.time-slot:active,
+.filter-btn:active,
+.location-card:active {
+  transform: scale(0.98);
+  filter: brightness(1.06);
+}
+
+.session-start-btn:active,
+.logout-btn:active {
+  transform: scale(0.97);
+}
+
+/* ===== Feedback-pass additions ===== */
+
+/* Logout confirmation (two-step) */
+.logout-confirm {
+  display: flex;
+  gap: var(--spacing-2);
+}
+.logout-btn-danger {
+  color: var(--destructive);
+  border-color: var(--destructive);
+}
+
+/* OTP "Resend" replaced with a hint */
+.resend-hint {
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  margin-top: var(--spacing-3);
+}
+
+/* OTP digit boxes (single overlaid input + display boxes) */
+.otp-boxes {
+  position: relative;
+}
+.otp-hidden-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+.otp-box-row {
+  display: flex;
+  gap: var(--spacing-2);
+  justify-content: center;
+}
+.otp-box {
+  width: 2.75rem;
+  height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--foreground);
+  background: var(--input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+.otp-box.filled {
+  border-color: var(--primary-border);
+}
+.otp-box.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+/* Date pills (replace the native date picker for the 3-day window) */
+.date-pills {
+  display: flex;
+  gap: var(--spacing-2);
+}
+.date-pill {
+  flex: 1;
+  padding: var(--spacing-3);
+  background: var(--input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted-foreground);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.date-pill.active {
+  background: var(--primary-bg);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.date-pill:active {
+  transform: scale(0.97);
 }

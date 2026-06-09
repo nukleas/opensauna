@@ -21,3 +21,29 @@ pub fn max_booking_date() -> String {
     let day = now.get_date();
     format!("{:04}-{:02}-{:02}", year, month, day)
 }
+
+/// The three bookable days (today + the next two), each as
+/// `(YYYY-MM-DD, short label)` — e.g. `("2026-06-08", "Today")`. HOTWORX only
+/// allows booking within a 3-day window, so a tiny pill row beats a native
+/// date picker.
+pub fn bookable_days() -> Vec<(String, String)> {
+    const WEEKDAYS: [&str; 7] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    (0..3)
+        .map(|offset| {
+            let d = js_sys::Date::new_0();
+            d.set_date(d.get_date() + offset);
+            let ymd = format!(
+                "{:04}-{:02}-{:02}",
+                d.get_full_year(),
+                d.get_month() + 1,
+                d.get_date()
+            );
+            let label = match offset {
+                0 => "Today".to_string(),
+                1 => "Tomorrow".to_string(),
+                _ => WEEKDAYS[(d.get_day() as usize) % 7].to_string(),
+            };
+            (ymd, label)
+        })
+        .collect()
+}

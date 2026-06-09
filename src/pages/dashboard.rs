@@ -196,6 +196,8 @@ pub fn DashboardPage() -> impl IntoView {
         navigate_to("/book");
     };
 
+    // Two-step logout so a stray tap doesn't end the session.
+    let confirming_logout = RwSignal::new(false);
     let on_logout = move || {
         wasm_bindgen_futures::spawn_local(async move {
             auth.logout().await;
@@ -220,10 +222,25 @@ pub fn DashboardPage() -> impl IntoView {
 
             <div class="dashboard-header">
                 <h1 class="dashboard-title">"Welcome Back!"</h1>
-                <button class="logout-btn" on:click=move |_| on_logout()>
-                    <IconLogOut size=crate::components::icons::IconSize::Sm />
-                    "Logout"
-                </button>
+                {move || if confirming_logout.get() {
+                    view! {
+                        <div class="logout-confirm">
+                            <button class="logout-btn logout-btn-danger" on:click=move |_| on_logout()>
+                                "Log out?"
+                            </button>
+                            <button class="logout-btn" on:click=move |_| confirming_logout.set(false)>
+                                "Cancel"
+                            </button>
+                        </div>
+                    }.into_any()
+                } else {
+                    view! {
+                        <button class="logout-btn" on:click=move |_| confirming_logout.set(true)>
+                            <IconLogOut size=crate::components::icons::IconSize::Sm />
+                            "Logout"
+                        </button>
+                    }.into_any()
+                }}
             </div>
 
             <div class="dashboard-content">

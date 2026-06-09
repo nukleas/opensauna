@@ -137,11 +137,9 @@ pub fn OtpPage() -> impl IntoView {
                         on_click=on_verify
                     />
 
-                    // Resend isn't wired to a backend yet — disable so it doesn't
-                    // read as broken. Re-enable once a resend endpoint exists.
-                    <button class="resend-button" disabled=true title="Resend is not available yet">
-                        "Resend Code"
-                    </button>
+                    // No resend endpoint exists, and the code is prefilled, so a
+                    // dead "Resend" button just reads as broken. Show a hint instead.
+                    <p class="resend-hint">"The code is already filled in — just tap Verify."</p>
                 </div>
             </div>
         </div>

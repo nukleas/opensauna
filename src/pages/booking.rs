@@ -3,7 +3,7 @@ use crate::components::{BottomNav, Button, IconChevronLeft, NavItem, PageLoading
 use crate::models::booking::{SessionType, TimeSlot};
 use crate::state::{handle_invoke_error, use_auth_state};
 use crate::utils::booking::{book_slots, BookableSlot};
-use crate::utils::dates::{max_booking_date as get_max_date, today as get_today_date};
+use crate::utils::dates::{bookable_days, today as get_today_date};
 use crate::utils::nav::go as navigate_to;
 use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
@@ -38,6 +38,8 @@ pub fn BookingPage() -> impl IntoView {
     let booking_progress = RwSignal::new(0usize);
     let booking_total = RwSignal::new(0usize);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
+    // Whether the current session type is saved as the Quick Book favorite.
+    let favorited = RwSignal::new(false);
 
     // Fetch session types when date changes
     Effect::new(move |_| {
@@ -220,14 +222,19 @@ pub fn BookingPage() -> impl IntoView {
                 // Date picker - restricted to today + 2 days (API allows within 3 days)
                 <div class="date-picker">
                     <label>"Select Date"</label>
-                    <input
-                        type="date"
-                        class="date-input"
-                        min=get_today_date()
-                        max=get_max_date()
-                        prop:value=move || selected_date.get()
-                        on:input=move |ev| selected_date.set(event_target_value(&ev))
-                    />
+                    <div class="date-pills">
+                        {bookable_days().into_iter().map(|(ymd, label)| {
+                            let ymd_sel = ymd.clone();
+                            view! {
+                                <button
+                                    class=move || if selected_date.get() == ymd_sel { "date-pill active" } else { "date-pill" }
+                                    on:click=move |_| selected_date.set(ymd.clone())
+                                >
+                                    {label}
+                                </button>
+                            }
+                        }).collect::<Vec<_>>()}
+                    </div>
                 </div>
 
                 // Session type selector
@@ -260,7 +267,10 @@ pub fn BookingPage() -> impl IntoView {
                                             view! {
                                                 <button
                                                     class=move || if is_selected() { "session-type-card selected" } else { "session-type-card" }
-                                                    on:click=move |_| selected_session_type.set(Some(st_for_click.clone()))
+                                                    on:click=move |_| {
+                                                        selected_session_type.set(Some(st_for_click.clone()));
+                                                        favorited.set(false);
+                                                    }
                                                 >
                                                     <span class="session-type-name">{display_name}</span>
                                                 </button>
@@ -279,7 +289,8 @@ pub fn BookingPage() -> impl IntoView {
                             let loc_id = location_id();
                             view! {
                                 <button
-                                    class="set-favorite-btn"
+                                    class=move || if favorited.get() { "set-favorite-btn favorited" } else { "set-favorite-btn" }
+                                    disabled=move || favorited.get()
                                     on:click=move |_| {
                                         let type_value = session_type_value.clone();
                                         let type_display = session_type_display.clone();
@@ -313,13 +324,24 @@ pub fn BookingPage() -> impl IntoView {
                                                 "sessionTypeDisplay": type_display,
                                             });
                                             match JsFuture::from(invoke("store_preferred_session_type", args)).await {
-                                                Ok(_) => log("[Booking] Saved favorite session type"),
-                                                Err(e) => log(&format!("[Booking] Failed to save favorite: {:?}", e)),
+                                                Ok(_) => {
+                                                    log("[Booking] Saved favorite session type");
+                                                    favorited.set(true);
+                                                    toast.success("Saved to Quick Book ★");
+                                                }
+                                                Err(e) => {
+                                                    log(&format!("[Booking] Failed to save favorite: {:?}", e));
+                                                    toast.error("Couldn't save favorite — try again");
+                                                }
                                             }
                                         });
                                     }
                                 >
-                                    "Set as Favorite for Quick Book"
+                                    {move || if favorited.get() {
+                                        "★ Saved to Quick Book"
+                                    } else {
+                                        "Set as Favorite for Quick Book"
+                                    }}
                                 </button>
                             }
                         })

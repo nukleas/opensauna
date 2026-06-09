@@ -18,7 +18,6 @@ pub fn ProfilePage() -> impl IntoView {
     let loading = RwSignal::new(true);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
     let saving = RwSignal::new(false);
-    let save_message: RwSignal<Option<String>> = RwSignal::new(None);
 
     // Edit mode states
     let editing_profile = RwSignal::new(false);
@@ -151,7 +150,6 @@ pub fn ProfilePage() -> impl IntoView {
     // Save profile changes
     let save_profile = move || {
         saving.set(true);
-        save_message.set(None);
 
         wasm_bindgen_futures::spawn_local(async move {
             let args = crate::json_args!({
@@ -168,7 +166,7 @@ pub fn ProfilePage() -> impl IntoView {
 
             match JsFuture::from(promise).await {
                 Ok(_) => {
-                    save_message.set(Some("Profile updated successfully".to_string()));
+                    toast.success("Profile updated");
                     editing_profile.set(false);
 
                     // Refresh profile data
@@ -198,7 +196,7 @@ pub fn ProfilePage() -> impl IntoView {
                         saving.set(false);
                         return;
                     }
-                    save_message.set(Some("Failed to update profile".to_string()));
+                    toast.error("Failed to update profile");
                 }
             }
 
@@ -220,7 +218,6 @@ pub fn ProfilePage() -> impl IntoView {
     // Save goals changes
     let save_goals = move || {
         saving.set(true);
-        save_message.set(None);
 
         wasm_bindgen_futures::spawn_local(async move {
             let args = crate::json_args!({
@@ -234,7 +231,7 @@ pub fn ProfilePage() -> impl IntoView {
 
             match JsFuture::from(promise).await {
                 Ok(_) => {
-                    save_message.set(Some("Goals updated successfully".to_string()));
+                    toast.success("Goals updated");
                     editing_goals.set(false);
 
                     // Refresh goals data
@@ -258,7 +255,7 @@ pub fn ProfilePage() -> impl IntoView {
                         saving.set(false);
                         return;
                     }
-                    save_message.set(Some("Failed to update goals".to_string()));
+                    toast.error("Failed to update goals");
                 }
             }
 
@@ -275,12 +272,6 @@ pub fn ProfilePage() -> impl IntoView {
             </div>
 
             <div class="profile-content">
-                // Success/error message
-                {move || save_message.get().map(|msg| {
-                    let class = if msg.contains("success") { "save-message success" } else { "save-message error" };
-                    view! { <div class=class>{msg}</div> }
-                })}
-
                 // Profile info section
                 <div class="section">
                     <div class="section-header">

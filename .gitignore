@@ -12,3 +12,6 @@ com.hotworx-decompiled/
 *.keystore
 **/keystore.properties
 **/key.properties
+
+# Playwright MCP scratch output
+/.playwright-mcp/
