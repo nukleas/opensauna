@@ -30,13 +30,15 @@ Your data stays between you and HOTWORX — see [PRIVACY.md](PRIVACY.md).
 
 ## Screenshots
 
-| Dashboard | Quick Book |
-|:---------:|:----------:|
-| <!-- screenshot: dashboard --> | <!-- screenshot: quick-book --> |
+| Dashboard | Sessions |
+|:---:|:---:|
+| <img src="docs/img/screenshot-dashboard.png" width="230" alt="Dashboard with stats and upcoming sessions"> | <img src="docs/img/screenshot-sessions.png" width="230" alt="Completed-today and session history"> |
 
-| Session Timer | Sessions History |
-|:-------------:|:----------------:|
-| <!-- screenshot: session-timer --> | <!-- screenshot: sessions --> |
+| Sign In | Verify OTP |
+|:---:|:---:|
+| <img src="docs/img/screenshot-login.png" width="230" alt="Sign-in screen"> | <img src="docs/img/screenshot-otp.png" width="230" alt="OTP entry with six digit boxes"> |
+
+<sub>Screenshots use demo data.</sub>
 
 ## Features
 
