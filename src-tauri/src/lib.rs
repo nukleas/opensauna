@@ -189,9 +189,11 @@ async fn api_login_with_password(
         .map_err(ipc_error)
 }
 
-/// Step 2 of password+OTP login. `password` is expected pre-hashed by the
-/// caller (the frontend stashes the SHA-256 digest from step 1 and passes
-/// it back here).
+/// Step 2 of password+OTP login. `password` is the plaintext password the
+/// frontend stashed from step 1; we hash it here (SHA-256) before sending,
+/// exactly as `api_login_with_password` does. The HOTWORX `verifyOtp`
+/// endpoint expects the password field to carry the SHA-256 digest, not the
+/// plaintext — sending plaintext makes OTP verification fail.
 #[tauri::command(rename_all = "camelCase")]
 async fn api_verify_otp(
     app: tauri::AppHandle,
@@ -203,7 +205,7 @@ async fn api_verify_otp(
     let device_id = get_device_id(app).await?;
     let client = HotworxClient::new(device_id).with_token(token);
     client
-        .verify_otp(&email, &password, &otp)
+        .verify_otp(&email, &password_hash(&password), &otp)
         .await
         .map_err(ipc_error)
 }
