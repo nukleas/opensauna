@@ -1,4 +1,4 @@
-# Contributing to BookWorx
+# Contributing to OpenSauna
 
 Thanks for your interest. Here's how to get involved.
 
@@ -21,10 +21,10 @@ Before submitting, make sure your code passes these checks (CI runs them too):
 cargo fmt --all
 
 # Lint the backend
-cargo clippy -p bookworx -- -D warnings
+cargo clippy -p opensauna -- -D warnings
 
 # Run backend tests
-cargo test -p bookworx
+cargo test -p opensauna
 ```
 
 If `cargo fmt` changes anything, commit those changes. CI will reject unformatted code.

@@ -4,7 +4,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io) server that
 exposes HOTWORX as tools for Claude Code (and any other MCP client).
 
 Built on top of [`hotworx-api`](../crates/hotworx-api) — the same crate
-the BookWorx desktop app uses. If you want to drive HOTWORX from a chat
+the OpenSauna desktop app uses. If you want to drive HOTWORX from a chat
 agent, this is the front door.
 
 ## What it does

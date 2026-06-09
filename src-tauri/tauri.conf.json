@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "BookWorx",
+  "productName": "OpenSauna",
   "version": "0.3.1",
-  "identifier": "com.nukleas.bookworx",
+  "identifier": "com.nukleas.opensauna",
   "build": {
     "beforeDevCommand": "trunk serve",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "BookWorx",
+        "title": "OpenSauna",
         "width": 800,
         "height": 600
       }
@@ -36,8 +36,6 @@
       "signingIdentity": "-",
       "minimumSystemVersion": "10.15"
     },
-    "iOS": {
-      "developmentTeam": "8832K8LBLC"
-    }
+    "iOS": {}
   }
 }

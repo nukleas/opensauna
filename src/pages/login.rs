@@ -108,7 +108,7 @@ pub fn LoginPage() -> impl IntoView {
                     <div class="login-logo">
                         <IconFlame size=crate::components::icons::IconSize::Xl />
                     </div>
-                    <h1 class="login-title">"BOOKWORX"</h1>
+                    <h1 class="login-title">"OPENSAUNA"</h1>
                     <p class="login-subtitle">"Sign in to your account"</p>
                 </div>
 

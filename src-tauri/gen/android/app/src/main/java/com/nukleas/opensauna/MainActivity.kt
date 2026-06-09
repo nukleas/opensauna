@@ -1,3 +1,3 @@
-package com.nukleas.bookworx
+package com.nukleas.opensauna
 
 class MainActivity : TauriActivity()

@@ -1,0 +1,33 @@
+OpenSauna
+=========
+
+OpenSauna is an independent, open-source, unofficial client for the HOTWORX
+member service. It is NOT affiliated with, authorized, sponsored, or endorsed
+by HOTWORX, Planet Beach Franchising Corp., or any related entity.
+
+"HOTWORX" and any related names or logos are trademarks of their respective
+owners. They are used here only nominatively — to describe what this software
+interoperates with — not as a claim of affiliation or endorsement.
+
+How it works
+------------
+OpenSauna communicates with the same member API that the official HOTWORX
+application uses, on your behalf, using credentials you supply. It implements
+the network protocol independently; it contains no HOTWORX source code or
+copyrighted assets.
+
+Use at your own risk
+--------------------
+This software is provided "AS IS", without warranty of any kind (see LICENSE).
+Using an unofficial client may violate HOTWORX's Terms of Service. You are
+solely responsible for your account and your use of this software, including
+any consequences such as account suspension. If you are not comfortable with
+that, do not use it.
+
+Security commentary
+-------------------
+This project documents observable shortcomings in the official application as
+factual, good-faith commentary and as motivation for a better implementation.
+It does not include exploits and is not intended to facilitate unauthorized
+access to anyone else's account. If you are HOTWORX and would like to discuss
+any of it — or fix it — pull requests and issues are welcome.

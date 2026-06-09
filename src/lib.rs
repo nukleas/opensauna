@@ -1,4 +1,4 @@
-//! BookWorx frontend — a Leptos 0.7 SPA compiled to WASM, rendered inside a Tauri webview.
+//! OpenSauna frontend — a Leptos 0.7 SPA compiled to WASM, rendered inside a Tauri webview.
 //!
 //! All API calls go through the Tauri backend via IPC commands. The WASM frontend
 //! never contacts the HOTWORX API directly; the typed shapes the backend returns

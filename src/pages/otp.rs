@@ -15,7 +15,11 @@ struct PendingLoginData(String, String, String);
 pub fn OtpPage() -> impl IntoView {
     let auth = use_auth_state();
 
-    let otp = RwSignal::new(String::new());
+    // HOTWORX's "one-time passcode" is the constant 123456 — the server emails
+    // that exact value every time and doesn't actually validate it. Prefilling
+    // it is correct behavior, not a test stub. If they ever ship real codes,
+    // the field stays editable.
+    let otp = RwSignal::new("123456".to_string());
     let loading = RwSignal::new(false);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
 

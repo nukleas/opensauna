@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "C46F358056FBAFD4B209593C"
-               BuildableName = "bookworx_iOS.app"
-               BlueprintName = "bookworx_iOS"
-               ReferencedContainer = "container:bookworx.xcodeproj">
+               BuildableName = "opensauna_iOS.app"
+               BlueprintName = "opensauna_iOS"
+               ReferencedContainer = "container:opensauna.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C46F358056FBAFD4B209593C"
-            BuildableName = "bookworx_iOS.app"
-            BlueprintName = "bookworx_iOS"
-            ReferencedContainer = "container:bookworx.xcodeproj">
+            BuildableName = "opensauna_iOS.app"
+            BlueprintName = "opensauna_iOS"
+            ReferencedContainer = "container:opensauna.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -70,9 +70,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C46F358056FBAFD4B209593C"
-            BuildableName = "bookworx_iOS.app"
-            BlueprintName = "bookworx_iOS"
-            ReferencedContainer = "container:bookworx.xcodeproj">
+            BuildableName = "opensauna_iOS.app"
+            BlueprintName = "opensauna_iOS"
+            ReferencedContainer = "container:opensauna.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -101,9 +101,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C46F358056FBAFD4B209593C"
-            BuildableName = "bookworx_iOS.app"
-            BlueprintName = "bookworx_iOS"
-            ReferencedContainer = "container:bookworx.xcodeproj">
+            BuildableName = "opensauna_iOS.app"
+            BlueprintName = "opensauna_iOS"
+            ReferencedContainer = "container:opensauna.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>

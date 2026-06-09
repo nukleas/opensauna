@@ -1,13 +1,13 @@
 # Architecture
 
-How BookWorx fits together and why.
+How OpenSauna fits together and why.
 
 ## Workspace layout
 
 ```
 HotWorx/                     ← repo root
-├── src/                     ── BookWorx frontend (Leptos → WASM)
-├── src-tauri/               ── BookWorx native backend (Tauri 2)
+├── src/                     ── OpenSauna frontend (Leptos → WASM)
+├── src-tauri/               ── OpenSauna native backend (Tauri 2)
 ├── crates/hotworx-api/      ── reusable HOTWORX SDK (this is where the
 │                                wire protocol lives)
 └── hotworx-mcp/             ── MCP server for Claude Code, also a
@@ -89,7 +89,7 @@ different output — preventing simple correlation.
 The encryption key is derived deterministically per-install:
 
 ```
-key = SHA-256(device_id ‖ "bookworx-token-encryption-salt")
+key = SHA-256(device_id ‖ "opensauna-token-encryption-salt")
 ```
 
 The `device_id` is a UUID generated once on first run and stored in

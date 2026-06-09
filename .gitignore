@@ -6,8 +6,6 @@ com.hotworx-decompiled/
 
 # Local development artifacts kept on disk for reference but not shipped
 /test_api.sh
-/icon-concepts/
-/Gemini_Generated_Image_*.png
 
 # Android signing material — must never be committed (belt-and-suspenders)
 *.jks
