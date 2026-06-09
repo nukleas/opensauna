@@ -7,7 +7,10 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Per-release binaries and auto-generated notes also live on the
 [GitHub Releases](../../releases) page.
 
-## [Unreleased]
+## [0.4.0] - 2026-06-08
+
+The OpenSauna rebrand release: renamed and re-iconed, with a round of feature
+polish, interaction feedback, and bug fixes.
 
 ### Fixed
 
@@ -20,6 +23,13 @@ Per-release binaries and auto-generated notes also live on the
 - **Active-session timer leak.** The 1 Hz timer was leaked with `mem::forget`
   and kept firing after unmount; it is now cleared on cleanup.
 - **End-session failures** no longer leave the overlay stuck on "Ending…".
+- **"Completed Today" mismatch.** It read from `getDashboard`'s often-empty
+  `todays_completed_sessions` while the history clearly showed today's sessions;
+  it's now derived from the same activity history, so the two always agree.
+- **Session-history date duplication** ("…19:33:25 at 19:33:25") — the time is
+  only appended when the date string doesn't already include it.
+- A leftover dev-server rebuild/reload loop (trunk now ignores build/tooling
+  scratch dirs).
 
 ### Changed
 
@@ -32,7 +42,19 @@ Per-release binaries and auto-generated notes also live on the
   show distinct messages.
 - Targeted HOTWORX app version bumped to **6.6.3** (was 6.5.5).
 - Booking and Quick Book now confirm success with a toast.
-- App version unified to `0.3.1` across `tauri.conf.json` and `Cargo.toml`.
+- **New app icon** — stacked sauna stones with rising steam (warm ember
+  palette); login logo now matches it (was the old flame). The macOS icon is a
+  rounded squircle with margins (macOS icon grid).
+- **Interaction feedback:** "Set as Favorite" confirms with a toast and a
+  "★ Saved" state; cancelling a session toasts; Profile/Goals saves use the
+  global toasts; tappable cards/chips/buttons have press (`:active`) states.
+- **Logout** is now a two-step confirm.
+- **OTP entry** is six digit boxes; the dead "Resend" button became a hint.
+- **Date selection** is a Today/Tomorrow/<day> pill row instead of a native
+  date picker (booking is a 3-day window anyway).
+- Calories and session counts over 1,000 now show **thousands separators**
+  (e.g. `12,500`).
+- App version is `0.4.0` across `tauri.conf.json` and `Cargo.toml`.
 
 ### Security
 
