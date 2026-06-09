@@ -18,6 +18,14 @@ pub fn LoginPage() -> impl IntoView {
         }
     });
 
+    // Drop any stale pending-login credentials left behind by an abandoned
+    // OTP attempt as soon as the login screen mounts.
+    Effect::new(move |_| {
+        wasm_bindgen_futures::spawn_local(async move {
+            let _ = JsFuture::from(invoke("clear_pending_login", crate::json_args!({}))).await;
+        });
+    });
+
     let email = RwSignal::new(String::new());
     let password = RwSignal::new(String::new());
     let loading = RwSignal::new(false);

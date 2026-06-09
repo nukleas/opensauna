@@ -40,24 +40,25 @@ pub fn ActiveSessionView(
     let location_name = session.location_name.clone();
     let duration_minutes = session.duration_minutes;
 
-    // Update elapsed time every second using gloo-timers
+    // Update elapsed time every second. Leptos' own timer helper hands back an
+    // `IntervalHandle` (a Copy id, unlike gloo's non-Send `Interval`) that we
+    // can clear on unmount — so the 1Hz tick stops instead of leaking forever.
     Effect::new(move |_| {
-        use gloo_timers::callback::Interval;
-
         // Initial update
         let now = now_ms();
         let elapsed = ((now - started_at) / 1000).max(0);
         elapsed_seconds.set(elapsed);
 
-        let interval = Interval::new(1000, move || {
-            let now = now_ms();
-            let elapsed = ((now - started_at) / 1000).max(0);
-            elapsed_seconds.set(elapsed);
-        });
-
-        // Store interval to prevent it from being dropped
-        // When the effect is cleaned up, the interval will be dropped and stop
-        std::mem::forget(interval);
+        if let Ok(handle) = set_interval_with_handle(
+            move || {
+                let now = now_ms();
+                let elapsed = ((now - started_at) / 1000).max(0);
+                elapsed_seconds.set(elapsed);
+            },
+            std::time::Duration::from_secs(1),
+        ) {
+            on_cleanup(move || handle.clear());
+        }
     });
 
     // Estimate calories burned (rough estimate: ~10 cal/min for hot yoga)
@@ -71,7 +72,13 @@ pub fn ActiveSessionView(
 
         wasm_bindgen_futures::spawn_local(async move {
             log("[ActiveSession] Ending session via state");
-            let _ = session_state.end_session().await;
+            if let Err(e) = session_state.end_session().await {
+                // Re-enable the controls instead of leaving the overlay stuck
+                // on "Ending..." forever.
+                log(&format!("[ActiveSession] Failed to end session: {}", e));
+                ending.set(false);
+                confirming_end.set(false);
+            }
         });
     };
 

@@ -54,6 +54,9 @@ pub fn OtpInput(
                 class="otp-input"
                 maxlength=length
                 placeholder="------"
+                aria-label="6-digit verification code"
+                inputmode="numeric"
+                autocomplete="one-time-code"
                 prop:value=move || value.get()
                 on:input=move |ev| {
                     let v = event_target_value(&ev);

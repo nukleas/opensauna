@@ -166,7 +166,8 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android
+          # All four Android ABIs so we can emit a single universal APK/AAB.
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
       - name: Add WASM target
         run: rustup target add wasm32-unknown-unknown
@@ -184,25 +185,50 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-android-
 
-      # ── Signing: Decode Keystore ──────────────────────────────────────
-      - name: Decode Android keystore
+      # ── Signing ───────────────────────────────────────────────────────
+      # gradle (build.gradle.kts) enables release signing only when
+      # $RUNNER_TEMP/keystore.properties exists, so we write it ONLY when the
+      # secret is present. On a tag we require it (a release must be signed);
+      # off-tag we warn and produce an unsigned build for verification.
+      - name: Configure Android signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/keystore.jks"
-
-      - name: Write keystore.properties
-        env:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+              echo "::error::ANDROID_KEYSTORE_BASE64 is not set — cannot produce a signed release for $GITHUB_REF_NAME. Add the signing secrets (see CONTRIBUTING.md)."
+              exit 1
+            fi
+            echo "::warning::No keystore secret set — building an UNSIGNED Android APK (fine for CI verification, not installable as an update)."
+            exit 0
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/keystore.jks"
           cat > "$RUNNER_TEMP/keystore.properties" <<EOF
           storeFile=$RUNNER_TEMP/keystore.jks
           storePassword=$ANDROID_KEYSTORE_PASSWORD
           keyAlias=$ANDROID_KEY_ALIAS
-          keyPassword=$ANDROID_KEYSTORE_PASSWORD
+          keyPassword=${ANDROID_KEY_PASSWORD:-$ANDROID_KEYSTORE_PASSWORD}
           EOF
           sed -i 's/^[[:space:]]*//' "$RUNNER_TEMP/keystore.properties"
+
+      # versionCode MUST strictly increase or Android refuses the in-place
+      # update; the monotonic run number guarantees it. versionName comes from
+      # the tag (vX.Y.Z -> X.Y.Z), or a -dev marker off-tag.
+      - name: Set Android version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0-dev+${GITHUB_SHA::7}"
+          fi
+          cat > src-tauri/gen/android/app/tauri.properties <<EOF
+          tauri.android.versionName=$VERSION
+          tauri.android.versionCode=$GITHUB_RUN_NUMBER
+          EOF
+          echo "Android version: $VERSION (code $GITHUB_RUN_NUMBER)"
 
       # ── Build ─────────────────────────────────────────────────────────
       - name: Install Trunk
@@ -214,8 +240,10 @@ jobs:
       - name: Set NDK_HOME
         run: echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
 
-      - name: Build Tauri Android (ARM64)
-        run: cargo tauri android build --target aarch64 --ci
+      # No --target => build every installed ABI into ONE universal artifact
+      # (app-universal-release.apk) so Obtainium has a single predictable asset.
+      - name: Build Tauri Android (universal APK + AAB)
+        run: cargo tauri android build --apk --aab --ci
 
       # ── Upload Artifacts ──────────────────────────────────────────────
       - name: Upload Android artifacts

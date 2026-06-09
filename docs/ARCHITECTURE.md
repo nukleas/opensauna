@@ -70,7 +70,7 @@ gave us:
 WASM running in a Tauri webview *can* make `fetch()` calls, but with
 the same restrictions a regular browser has — most importantly, it
 can't send a custom `User-Agent`. The HOTWORX API requires the
-`okhttp/4.12.0` UA + `application-version: 6.5.5` headers that mark the
+`okhttp/4.12.0` UA + `application-version: 6.6.3` headers that mark the
 request as coming from the official Android app. Setting those from
 WASM isn't possible.
 
@@ -123,7 +123,7 @@ app. We send the same set of headers the official app does:
 | Header | Value | Why |
 |---|---|---|
 | `User-Agent` | `okhttp/4.12.0` | Android client signature |
-| `application-version` | `6.5.5` | App version compatibility |
+| `application-version` | `6.6.3` | App version compatibility |
 | `sec-ch-ua-platform` | `Android` | Platform routing |
 | `device-id` | UUID per install | Required field |
 
