@@ -1,13 +1,13 @@
 # Uncomment the next line to define a global platform for your project
 
-target 'bookworx_iOS' do
+target 'opensauna_iOS' do
 platform :ios, '13.0'
-  # Pods for bookworx_iOS
+  # Pods for opensauna_iOS
 end
 
-target 'bookworx_macOS' do
+target 'opensauna_macOS' do
 platform :osx, '11.0'
-  # Pods for bookworx_macOS
+  # Pods for opensauna_macOS
 end
 
 # Delete the deployment target for iOS and macOS, causing it to be inherited from the Podfile

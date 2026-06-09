@@ -26,7 +26,7 @@
 		064C1F3026D05868D62DE8B3 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
 		09028126D751C7FE11558126 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		119F3E750513C8E6E4083095 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		2FE44EDC4612EC0819DEF026 /* bookworx_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = bookworx_iOS.entitlements; sourceTree = "<group>"; };
+		2FE44EDC4612EC0819DEF026 /* opensauna_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = opensauna_iOS.entitlements; sourceTree = "<group>"; };
 		3B82FC54EEDE07C6B8D332A4 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		4CE63C6EB11762B20826DED4 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
 		59C1B904985BF65253AC8D49 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -39,7 +39,7 @@
 		DCC953571A2B3CEA2988160A /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
 		E39C4792FCE19470E53A6FEA /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
 		F30A0EA9210A3C85D926542D /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
-		FE04D693FB1809DB239B1733 /* bookworx_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = bookworx_iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE04D693FB1809DB239B1733 /* opensauna_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = opensauna_iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,7 +64,7 @@
 		0A9712E1D9A596BC5BE06883 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				5BE1833217B264783966EBDE /* bookworx */,
+				5BE1833217B264783966EBDE /* opensauna */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -82,7 +82,7 @@
 				064C1F3026D05868D62DE8B3 /* assets */,
 				119F3E750513C8E6E4083095 /* Assets.xcassets */,
 				09028126D751C7FE11558126 /* LaunchScreen.storyboard */,
-				7A0767B2BA64B12DECD79573 /* bookworx_iOS */,
+				7A0767B2BA64B12DECD79573 /* opensauna_iOS */,
 				10D7D3E7B6A910E3043B2282 /* Externals */,
 				0A9712E1D9A596BC5BE06883 /* Sources */,
 				766FDF1379A275E93B94D7C4 /* src */,
@@ -91,13 +91,13 @@
 			);
 			sourceTree = "<group>";
 		};
-		5BE1833217B264783966EBDE /* bookworx */ = {
+		5BE1833217B264783966EBDE /* opensauna */ = {
 			isa = PBXGroup;
 			children = (
 				4CE63C6EB11762B20826DED4 /* main.mm */,
 				7A0C02F455D79E6EDCFBFD2C /* bindings */,
 			);
-			path = bookworx;
+			path = opensauna;
 			sourceTree = "<group>";
 		};
 		766FDF1379A275E93B94D7C4 /* src */ = {
@@ -110,13 +110,13 @@
 			path = ../../src;
 			sourceTree = "<group>";
 		};
-		7A0767B2BA64B12DECD79573 /* bookworx_iOS */ = {
+		7A0767B2BA64B12DECD79573 /* opensauna_iOS */ = {
 			isa = PBXGroup;
 			children = (
-				2FE44EDC4612EC0819DEF026 /* bookworx_iOS.entitlements */,
+				2FE44EDC4612EC0819DEF026 /* opensauna_iOS.entitlements */,
 				781F913895A7F2E464D8B775 /* Info.plist */,
 			);
-			path = bookworx_iOS;
+			path = opensauna_iOS;
 			sourceTree = "<group>";
 		};
 		7A0C02F455D79E6EDCFBFD2C /* bindings */ = {
@@ -130,7 +130,7 @@
 		C30D11EE04192A4210CDC2AF /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				FE04D693FB1809DB239B1733 /* bookworx_iOS.app */,
+				FE04D693FB1809DB239B1733 /* opensauna_iOS.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -153,9 +153,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		C46F358056FBAFD4B209593C /* bookworx_iOS */ = {
+		C46F358056FBAFD4B209593C /* opensauna_iOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = E11743ED5CA9957708232A86 /* Build configuration list for PBXNativeTarget "bookworx_iOS" */;
+			buildConfigurationList = E11743ED5CA9957708232A86 /* Build configuration list for PBXNativeTarget "opensauna_iOS" */;
 			buildPhases = (
 				570E978013DB09DE355B780D /* Build Rust Code */,
 				8D7E39F1E3B842034C52AE6D /* Sources */,
@@ -166,11 +166,11 @@
 			);
 			dependencies = (
 			);
-			name = bookworx_iOS;
+			name = opensauna_iOS;
 			packageProductDependencies = (
 			);
-			productName = bookworx_iOS;
-			productReference = FE04D693FB1809DB239B1733 /* bookworx_iOS.app */;
+			productName = opensauna_iOS;
+			productReference = FE04D693FB1809DB239B1733 /* opensauna_iOS.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -183,11 +183,11 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					C46F358056FBAFD4B209593C = {
-						DevelopmentTeam = 8832K8LBLC;
+						DevelopmentTeam = ;
 					};
 				};
 			};
-			buildConfigurationList = 5C2B0340B42482A5D6927A35 /* Build configuration list for PBXProject "bookworx" */;
+			buildConfigurationList = 5C2B0340B42482A5D6927A35 /* Build configuration list for PBXProject "opensauna" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -201,7 +201,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				C46F358056FBAFD4B209593C /* bookworx_iOS */,
+				C46F358056FBAFD4B209593C /* opensauna_iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -326,24 +326,24 @@
 					arm64,
 				);
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = bookworx_iOS/bookworx_iOS.entitlements;
+				CODE_SIGN_ENTITLEMENTS = opensauna_iOS/opensauna_iOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 8832K8LBLC;
+				DEVELOPMENT_TEAM = ;
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\".\"",
 				);
-				INFOPLIST_FILE = bookworx_iOS/Info.plist;
+				INFOPLIST_FILE = opensauna_iOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
-				PRODUCT_BUNDLE_IDENTIFIER = com.nukleas.bookworx;
-				PRODUCT_NAME = BookWorx;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nukleas.opensauna;
+				PRODUCT_NAME = OpenSauna;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
@@ -414,26 +414,26 @@
 					arm64,
 				);
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = bookworx_iOS/bookworx_iOS.entitlements;
+				CODE_SIGN_ENTITLEMENTS = opensauna_iOS/opensauna_iOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				DEVELOPMENT_TEAM = 8832K8LBLC;
-				PROVISIONING_PROFILE_SPECIFIER = "BookWorx App Store";
+				DEVELOPMENT_TEAM = ;
+				PROVISIONING_PROFILE_SPECIFIER = "OpenSauna App Store";
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\".\"",
 				);
-				INFOPLIST_FILE = bookworx_iOS/Info.plist;
+				INFOPLIST_FILE = opensauna_iOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
-				PRODUCT_BUNDLE_IDENTIFIER = com.nukleas.bookworx;
-				PRODUCT_NAME = BookWorx;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nukleas.opensauna;
+				PRODUCT_NAME = OpenSauna;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
@@ -443,7 +443,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		5C2B0340B42482A5D6927A35 /* Build configuration list for PBXProject "bookworx" */ = {
+		5C2B0340B42482A5D6927A35 /* Build configuration list for PBXProject "opensauna" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				050F057DC083876BC1D88D2B /* debug */,
@@ -452,7 +452,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = debug;
 		};
-		E11743ED5CA9957708232A86 /* Build configuration list for PBXNativeTarget "bookworx_iOS" */ = {
+		E11743ED5CA9957708232A86 /* Build configuration list for PBXNativeTarget "opensauna_iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				6161003F1C91BC22891F28A3 /* debug */,

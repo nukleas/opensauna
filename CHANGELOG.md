@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to BookWorx are documented here. The format is based on
+All notable changes to OpenSauna are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project aims
 to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -23,6 +23,11 @@ Per-release binaries and auto-generated notes also live on the
 
 ### Changed
 
+- **Rebranded BookWorx → OpenSauna.** Product name, app/window title, Cargo
+  packages, and the Android/Apple bundle identifier are now `opensauna`
+  (`com.nukleas.opensauna`). The `hotworx-api`/`hotworx-mcp` crates keep their
+  descriptive names (they're clients *for* the HOTWORX API). Removed the
+  hardcoded Apple development team ID.
 - Auth errors are differentiated: an expired session and "not logged in" now
   show distinct messages.
 - Targeted HOTWORX app version bumped to **6.6.3** (was 6.5.5).
@@ -40,8 +45,12 @@ Per-release binaries and auto-generated notes also live on the
 - Android release pipeline: tag-driven, signed universal APK/AAB published to
   GitHub Releases, with a monotonic `versionCode` for reliable in-place updates.
 - `PRIVACY.md`, this changelog, and release/signing docs in `CONTRIBUTING.md`.
+- `docs/why-opensauna.md` (the project's rationale and documented critiques of
+  the official app) and a top-level `NOTICE` (trademark/interoperability/legal).
 - OTP input accessibility attributes (`aria-label`, `inputmode`,
   `autocomplete="one-time-code"`).
+- The OTP screen prefills `123456` — HOTWORX's one-time code is that constant
+  value every time, so prefilling it is correct (the field stays editable).
 
 ## Released
 

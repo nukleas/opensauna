@@ -1,13 +1,13 @@
 # Privacy Policy
 
-BookWorx is an unofficial desktop and mobile client for HOTWORX. It is not
+OpenSauna is an unofficial desktop and mobile client for HOTWORX. It is not
 affiliated with HOTWORX. This document describes what the app does with your
 data. Short version: it talks only to HOTWORX, stores as little as possible
 locally, and collects no analytics.
 
 ## What the app stores on your device
 
-- **Bearer token.** After you log in, HOTWORX issues a session token. BookWorx
+- **Bearer token.** After you log in, HOTWORX issues a session token. OpenSauna
   stores it **encrypted at rest** (AES-256-GCM, keyed per install) and uses it
   to authenticate subsequent requests. It is cleared on logout.
 - **Pending login (during OTP only).** If your account requires a one-time code,

@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    bookworx_lib::run()
+    opensauna_lib::run()
 }

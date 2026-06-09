@@ -20,7 +20,7 @@ labels: bug
 
 ## Environment
 
-- BookWorx version (or commit hash):
+- OpenSauna version (or commit hash):
 - OS:
 - Tauri version (`cargo tauri --version`):
 

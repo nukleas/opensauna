@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-If you think you've found a security issue in BookWorx — anything that could
+If you think you've found a security issue in OpenSauna — anything that could
 leak credentials, allow account takeover, or compromise a member's HOTWORX
 session — please **do not open a public GitHub issue**.
 

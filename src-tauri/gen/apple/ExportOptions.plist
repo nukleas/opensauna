@@ -7,11 +7,11 @@
     <key>signingStyle</key>
     <string>manual</string>
     <key>teamID</key>
-    <string>8832K8LBLC</string>
+    <string></string>
     <key>provisioningProfiles</key>
     <dict>
-        <key>com.nukleas.bookworx</key>
-        <string>BookWorx App Store</string>
+        <key>com.nukleas.opensauna</key>
+        <string>OpenSauna App Store</string>
     </dict>
 </dict>
 </plist>

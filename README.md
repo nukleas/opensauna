@@ -1,7 +1,11 @@
-# BookWorx
+# OpenSauna
 
 A desktop app — and reusable Rust library, and Claude Code MCP server — for
 managing your HOTWORX sessions. Book faster, track better, skip the phone.
+
+An unofficial, open-source HOTWORX client that books multiple sessions at once,
+rebooks in one tap, and tries to do the basics the official app fumbles — see
+[**Why OpenSauna exists**](docs/why-opensauna.md).
 
 ## What's in this repo
 
@@ -9,7 +13,7 @@ This is a Cargo workspace with three pieces:
 
 | Piece | Path | What it is |
 |---|---|---|
-| **BookWorx** | `src/`, `src-tauri/` | The desktop app — Leptos 0.7 frontend (WASM) inside a Tauri 2 webview, native Rust backend |
+| **OpenSauna** | `src/`, `src-tauri/` | The desktop app — Leptos 0.7 frontend (WASM) inside a Tauri 2 webview, native Rust backend |
 | **`hotworx-api`** | [`crates/hotworx-api/`](crates/hotworx-api) | Reusable Rust SDK for the HOTWORX member API. Used by both pieces below. |
 | **`hotworx-mcp`** | [`hotworx-mcp/`](hotworx-mcp) | Model Context Protocol server so Claude Code (and other MCP clients) can drive HOTWORX |
 
@@ -18,7 +22,9 @@ build their own HOTWORX tools without re-implementing the wire protocol.
 
 ## Disclaimer
 
-Not affiliated with HOTWORX. Provided as-is, without warranty — see [LICENSE](LICENSE).
+Not affiliated with, authorized, or endorsed by HOTWORX. Unofficial client; use
+at your own risk — it may conflict with HOTWORX's Terms of Service. Provided
+as-is, without warranty — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 Your data stays between you and HOTWORX — see [PRIVACY.md](PRIVACY.md).
 
@@ -60,7 +66,7 @@ Your data stays between you and HOTWORX — see [PRIVACY.md](PRIVACY.md).
 cargo tauri dev
 ```
 
-Hot reload, opens BookWorx pointed at the real HOTWORX API.
+Hot reload, opens OpenSauna pointed at the real HOTWORX API.
 
 ### Production build
 
@@ -68,7 +74,7 @@ Hot reload, opens BookWorx pointed at the real HOTWORX API.
 cargo tauri build
 ```
 
-Outputs `target/release/bundle/macos/BookWorx.app` (and a DMG) on macOS,
+Outputs `target/release/bundle/macos/OpenSauna.app` (and a DMG) on macOS,
 equivalents on other platforms.
 
 ### Use just the SDK

@@ -66,7 +66,7 @@ async fn main() -> hotworx_api::Result<()> {
 | Activity | `get_activity_history` |
 
 The client is stateless beyond the device ID and bearer token — token storage
-and encryption are intentionally out of scope. See the BookWorx app in this
+and encryption are intentionally out of scope. See the OpenSauna app in this
 repo for a reference implementation that handles AES-256-GCM token-at-rest
 encryption on top of `hotworx-api`.
 

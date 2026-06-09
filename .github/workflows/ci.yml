@@ -128,7 +128,7 @@ jobs:
       - name: Upload bundle
         uses: actions/upload-artifact@v4
         with:
-          name: bookworx-${{ matrix.os }}
+          name: opensauna-${{ matrix.os }}
           path: |
             target/release/bundle/macos/*.app
             target/release/bundle/dmg/*.dmg
@@ -249,7 +249,7 @@ jobs:
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: bookworx-android
+          name: opensauna-android
           path: |
             src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
             src-tauri/gen/android/app/build/outputs/apk/**/*.apk

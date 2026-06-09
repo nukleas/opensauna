@@ -1,4 +1,4 @@
-//! BookWorx Tauri backend.
+//! OpenSauna Tauri backend.
 //!
 //! All HOTWORX HTTP traffic flows through [`hotworx_api::HotworxClient`].
 //! This file is responsible for the *desktop-app concerns* the crate
@@ -44,7 +44,7 @@ const NOT_AUTHENTICATED_PREFIX: &str = "NOT_AUTHENTICATED";
 fn derive_key(device_id: &str) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(device_id.as_bytes());
-    hasher.update(b"bookworx-token-encryption-salt");
+    hasher.update(b"opensauna-token-encryption-salt");
     let result = hasher.finalize();
     let mut key = [0u8; 32];
     key.copy_from_slice(&result);

@@ -1,6 +1,6 @@
-name: bookworx
+name: opensauna
 options:
-  bundleIdPrefix: com.nukleas.bookworx
+  bundleIdPrefix: com.nukleas.opensauna
   deploymentTarget:
     iOS: 13.0
 fileGroups: [../../src]
@@ -10,9 +10,9 @@ configs:
 settingGroups:
   app:
     base:
-      PRODUCT_NAME: BookWorx
-      PRODUCT_BUNDLE_IDENTIFIER: com.nukleas.bookworx
-      DEVELOPMENT_TEAM: 8832K8LBLC
+      PRODUCT_NAME: OpenSauna
+      PRODUCT_BUNDLE_IDENTIFIER: com.nukleas.opensauna
+      DEVELOPMENT_TEAM: 
 targetTemplates:
   app:
     type: application
@@ -25,20 +25,20 @@ targetTemplates:
     settings:
       groups: [app]
 targets:
-  bookworx_iOS:
+  opensauna_iOS:
     type: application
     platform: iOS
     sources:
       - path: Sources
       - path: Assets.xcassets
       - path: Externals
-      - path: bookworx_iOS
+      - path: opensauna_iOS
       - path: assets
         buildPhase: resources
         type: folder
       - path: LaunchScreen.storyboard
     info:
-      path: bookworx_iOS/Info.plist
+      path: opensauna_iOS/Info.plist
       properties:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
@@ -55,7 +55,7 @@ targets:
         CFBundleShortVersionString: 0.1.0
         CFBundleVersion: 0.1.0
     entitlements:
-      path: bookworx_iOS/bookworx_iOS.entitlements
+      path: opensauna_iOS/opensauna_iOS.entitlements
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full
