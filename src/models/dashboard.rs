@@ -72,18 +72,14 @@ pub struct Summary {
 }
 
 impl Summary {
-    /// Total sessions as a display string, defaults to "0".
+    /// Total sessions as a display string (comma-grouped), defaults to "0".
     pub fn sessions_count(&self) -> String {
-        self.total_sessions
-            .clone()
-            .unwrap_or_else(|| "0".to_string())
+        crate::utils::format::with_commas(self.total_sessions.as_deref().unwrap_or("0"))
     }
 
-    /// Total calories burned as a display string, defaults to "0".
+    /// Total calories burned as a display string (comma-grouped), defaults to "0".
     pub fn calories_burned(&self) -> String {
-        self.total_cal_burned
-            .clone()
-            .unwrap_or_else(|| "0".to_string())
+        crate::utils::format::with_commas(self.total_cal_burned.as_deref().unwrap_or("0"))
     }
 
     /// Current consecutive-day streak as a display string, defaults to "0".
@@ -118,6 +114,6 @@ impl PendingSession {
         self.cal_burnt
             .as_ref()
             .filter(|c| !c.is_empty() && *c != "0")
-            .map(|c| format!("{} cal", c))
+            .map(|c| format!("{} cal", crate::utils::format::with_commas(c)))
     }
 }

@@ -58,9 +58,10 @@ fn history_card(entry: &serde_json::Value) -> impl IntoView {
             if c.is_empty() {
                 "--".to_string()
             } else if c.contains(char::is_alphabetic) {
-                c.to_string() // already has units, e.g. "192 Cal"
+                // already has units, e.g. "192 Cal" / "1234 Cal"
+                crate::utils::format::with_commas_keep_suffix(c)
             } else {
-                format!("{} cal", c)
+                format!("{} cal", crate::utils::format::with_commas(c))
             }
         })
         .unwrap_or_else(|| "--".to_string());
