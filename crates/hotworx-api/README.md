@@ -81,7 +81,7 @@ unexpected response shapes.
 ## Stability
 
 `0.x` — the public API will move with HOTWORX's wire format. We track the
-HOTWORX Android app version (currently **6.5.5**) in `headers::APP_VERSION`;
+HOTWORX Android app version (currently **6.6.3**) in `headers::APP_VERSION`;
 expect a minor bump every time HOTWORX rolls out an app release that
 changes the protocol.
 

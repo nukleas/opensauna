@@ -25,9 +25,16 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use tauri_plugin_store::StoreExt;
 
-/// Sentinel prefix the frontend matches on to detect an expired session.
-/// The same string lives in `src/state/auth_state.rs`.
+/// Sentinel prefix the frontend matches on when a token *was* present but the
+/// server rejected it (HTTP 401/403) — i.e. the session expired. The same
+/// string lives in `src/state/auth_state.rs`.
 const AUTH_EXPIRED_PREFIX: &str = "AUTH_EXPIRED";
+
+/// Sentinel prefix for the distinct case where no token is stored at all —
+/// the user was never logged in (or the token was cleared), as opposed to an
+/// expired one. The frontend differentiates the two to message accordingly.
+/// The same string lives in `src/state/auth_state.rs`.
+const NOT_AUTHENTICATED_PREFIX: &str = "NOT_AUTHENTICATED";
 
 // ─── Token-at-rest encryption ────────────────────────────────────────────
 
@@ -99,14 +106,15 @@ fn ipc_error(err: HotworxError) -> String {
     }
 }
 
-/// Build a [`HotworxClient`] from the persisted token + device-id. Returns
-/// the auth-expired sentinel if no token is stored — same code path as a
-/// 401 from the server, so the frontend redirects to login uniformly.
+/// Build a [`HotworxClient`] from the persisted token + device-id. If no token
+/// is stored, returns the `NOT_AUTHENTICATED` sentinel (never logged in) —
+/// distinct from the `AUTH_EXPIRED` sentinel a 401 from the server produces.
+/// Both send the user to login, but the frontend messages them differently.
 async fn build_client(app: &tauri::AppHandle) -> Result<HotworxClient, String> {
     let device_id = get_device_id(app.clone()).await?;
     let token = get_auth_token(app.clone())
         .await?
-        .ok_or_else(|| format!("{}: not authenticated", AUTH_EXPIRED_PREFIX))?;
+        .ok_or_else(|| format!("{}: not authenticated", NOT_AUTHENTICATED_PREFIX))?;
     Ok(HotworxClient::new(device_id).with_token(token))
 }
 
@@ -597,9 +605,13 @@ async fn store_pending_login(
     password: String,
     token: String,
 ) -> Result<(), String> {
+    // The password is sensitive and lingers on disk until OTP succeeds, so
+    // encrypt it at rest exactly like the bearer token (see store_auth_token).
+    let device_id = get_device_id(app.clone()).await?;
+    let encrypted_password = encrypt_value(&password, &device_id)?;
     let store = app.store("auth.json").map_err(|e| e.to_string())?;
     store.set("pending_email", serde_json::json!(email));
-    store.set("pending_password", serde_json::json!(password));
+    store.set("pending_password", serde_json::json!(encrypted_password));
     store.set("pending_token", serde_json::json!(token));
     store.save().map_err(|e| e.to_string())?;
     Ok(())
@@ -614,16 +626,25 @@ async fn get_pending_login(
     let email = store
         .get("pending_email")
         .and_then(|v| v.as_str().map(String::from));
-    let password = store
+    let encrypted_password = store
         .get("pending_password")
         .and_then(|v| v.as_str().map(String::from));
     let token = store
         .get("pending_token")
         .and_then(|v| v.as_str().map(String::from));
 
-    match (email, password, token) {
-        (Some(e), Some(p), Some(t)) => Ok(Some((e, p, t))),
-        _ => Ok(None),
+    let (Some(e), Some(enc), Some(t)) = (email, encrypted_password, token) else {
+        return Ok(None);
+    };
+    let device_id = get_device_id(app).await?;
+    // Drop the pending login if the password can't be decrypted rather than
+    // surfacing a hard error — the user can simply log in again.
+    match decrypt_value(&enc, &device_id) {
+        Ok(password) => Ok(Some((e, password, t))),
+        Err(err) => {
+            eprintln!("[auth] discarding undecryptable pending login: {}", err);
+            Ok(None)
+        }
     }
 }
 
@@ -926,6 +947,14 @@ mod tests {
         });
         assert!(!s.contains(AUTH_EXPIRED_PREFIX));
         assert!(s.contains("500"));
+    }
+
+    #[test]
+    fn auth_sentinels_are_mutually_unambiguous() {
+        // The frontend distinguishes the two cases with substring matching, so
+        // neither prefix may contain the other.
+        assert!(!NOT_AUTHENTICATED_PREFIX.contains(AUTH_EXPIRED_PREFIX));
+        assert!(!AUTH_EXPIRED_PREFIX.contains(NOT_AUTHENTICATED_PREFIX));
     }
 
     #[test]

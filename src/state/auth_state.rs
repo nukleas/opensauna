@@ -4,10 +4,34 @@ use crate::utils::tauri::{clear_auth_token, get_auth_token, store_auth_token};
 use leptos::prelude::*;
 use wasm_bindgen::JsValue;
 
-/// Sentinel that the Tauri backend prepends to auth-failure error strings
-/// (HTTP 401/403 or missing token). Must stay in sync with `AUTH_EXPIRED_PREFIX`
-/// in `src-tauri/src/lib.rs`.
+/// Sentinel the Tauri backend prepends when a token *was* present but the
+/// server rejected it (HTTP 401/403) — the session expired. Must stay in sync
+/// with `AUTH_EXPIRED_PREFIX` in `src-tauri/src/lib.rs`.
 const AUTH_EXPIRED_MARKER: &str = "AUTH_EXPIRED";
+
+/// Sentinel for the distinct case where no token is stored at all — the user
+/// was never logged in. Must stay in sync with `NOT_AUTHENTICATED_PREFIX` in
+/// `src-tauri/src/lib.rs`.
+const NOT_AUTHENTICATED_MARKER: &str = "NOT_AUTHENTICATED";
+
+/// Why an authenticated request failed its auth check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthErrorKind {
+    /// A token was present but the server rejected it — session expired.
+    Expired,
+    /// No token was stored — the user isn't logged in.
+    NotAuthenticated,
+}
+
+impl AuthErrorKind {
+    /// User-facing message for this auth failure.
+    fn message(self) -> &'static str {
+        match self {
+            AuthErrorKind::Expired => "Your session expired — please log in again",
+            AuthErrorKind::NotAuthenticated => "You're not logged in — please log in to continue",
+        }
+    }
+}
 
 /// Global authentication state
 #[derive(Clone, Copy)]
@@ -97,9 +121,22 @@ pub fn invoke_error_string(err: &JsValue) -> String {
     err.as_string().unwrap_or_else(|| format!("{:?}", err))
 }
 
-/// Returns true iff the error string came from the backend's auth sentinel.
+/// Classify an error string by which auth sentinel (if any) it carries.
+/// Checks the more specific `NOT_AUTHENTICATED` marker first. Returns `None`
+/// for ordinary, non-auth errors.
+pub fn classify_auth_error(err: &str) -> Option<AuthErrorKind> {
+    if err.contains(NOT_AUTHENTICATED_MARKER) {
+        Some(AuthErrorKind::NotAuthenticated)
+    } else if err.contains(AUTH_EXPIRED_MARKER) {
+        Some(AuthErrorKind::Expired)
+    } else {
+        None
+    }
+}
+
+/// Returns true iff the error string came from either auth sentinel.
 pub fn is_auth_expired_error(err: &str) -> bool {
-    err.contains(AUTH_EXPIRED_MARKER)
+    classify_auth_error(err).is_some()
 }
 
 /// Inspect a Tauri `invoke` rejection. If it indicates the auth token is no
@@ -108,15 +145,15 @@ pub fn is_auth_expired_error(err: &str) -> bool {
 /// for ordinary errors so the caller can render its usual error state.
 pub async fn handle_invoke_error(err: &JsValue, auth: AuthState, toast: ToastState) -> bool {
     let err_str = invoke_error_string(err);
-    if !is_auth_expired_error(&err_str) {
+    let Some(kind) = classify_auth_error(&err_str) else {
         return false;
-    }
+    };
     // Already logged out by a sibling request — don't double-toast.
     if auth.token.get_untracked().is_none() {
         return true;
     }
     auth.logout().await;
-    toast.error("Session expired — please log in again");
+    toast.error(kind.message());
     true
 }
 

@@ -163,10 +163,7 @@ pub fn QuickBookPage() -> impl IntoView {
             let outcome = book_slots(auth, toast, bookables, loc_id, date, booking_progress).await;
 
             if outcome.all_succeeded() {
-                log(&format!(
-                    "[QuickBook] Successfully booked {} sessions!",
-                    outcome.total
-                ));
+                toast.success(format!("Booked {} session(s)!", outcome.total));
                 navigate_to("/");
             } else {
                 error.set(Some(format!(

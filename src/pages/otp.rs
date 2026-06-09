@@ -15,8 +15,7 @@ struct PendingLoginData(String, String, String);
 pub fn OtpPage() -> impl IntoView {
     let auth = use_auth_state();
 
-    // Pre-fill OTP for testing
-    let otp = RwSignal::new("123456".to_string());
+    let otp = RwSignal::new(String::new());
     let loading = RwSignal::new(false);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
 
@@ -48,7 +47,7 @@ pub fn OtpPage() -> impl IntoView {
                 return;
             };
 
-            log(&format!("[OTP] Verifying OTP for: {}", email));
+            log("[OTP] Verifying OTP...");
 
             // Call backend API command
             let args = crate::json_args!({
@@ -61,8 +60,7 @@ pub fn OtpPage() -> impl IntoView {
             let promise = invoke("api_verify_otp", args);
             match JsFuture::from(promise).await {
                 Ok(result) => {
-                    log(&format!("[OTP] Got result: {:?}", result));
-
+                    // Note: do not log `result` — it carries the bearer token.
                     let response: VerifyOtpResponse = serde_wasm_bindgen::from_value(result)
                         .unwrap_or_else(|e| {
                             log(&format!("[OTP] Parse error: {:?}", e));
@@ -101,7 +99,11 @@ pub fn OtpPage() -> impl IntoView {
     };
 
     let on_back = move || {
-        navigate_to("/login");
+        // Drop the stashed credentials (incl. the password) when abandoning OTP.
+        wasm_bindgen_futures::spawn_local(async move {
+            let _ = JsFuture::from(invoke("clear_pending_login", crate::json_args!({}))).await;
+            navigate_to("/login");
+        });
     };
 
     view! {
@@ -131,7 +133,9 @@ pub fn OtpPage() -> impl IntoView {
                         on_click=on_verify
                     />
 
-                    <button class="resend-button">
+                    // Resend isn't wired to a backend yet — disable so it doesn't
+                    // read as broken. Re-enable once a resend endpoint exists.
+                    <button class="resend-button" disabled=true title="Resend is not available yet">
                         "Resend Code"
                     </button>
                 </div>

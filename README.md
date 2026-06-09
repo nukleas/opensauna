@@ -20,6 +20,8 @@ build their own HOTWORX tools without re-implementing the wire protocol.
 
 Not affiliated with HOTWORX. Provided as-is, without warranty — see [LICENSE](LICENSE).
 
+Your data stays between you and HOTWORX — see [PRIVACY.md](PRIVACY.md).
+
 ## Screenshots
 
 | Dashboard | Quick Book |

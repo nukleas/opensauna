@@ -253,7 +253,18 @@ impl HotworxClient {
         // Some HOTWORX backends expect the booking ID in a `booking_id`
         // field even though the value is the session record ID. We send
         // it under the name HOTWORX uses on the wire.
-        let _: serde_json::Value = self
+        //
+        // HOTWORX signals a failed cancellation with HTTP 200 + an `error`
+        // (or non-success `status`) in the body, so we can't just discard it —
+        // otherwise a failed cancel reports success to the caller.
+        #[derive(Deserialize)]
+        struct DeleteSessionResponse {
+            #[serde(default)]
+            status: Option<String>,
+            #[serde(default)]
+            error: Option<String>,
+        }
+        let resp: DeleteSessionResponse = self
             .post_form(
                 "booking/deleteSession",
                 &[
@@ -263,6 +274,18 @@ impl HotworxClient {
                 true,
             )
             .await?;
+        if let Some(err) = resp.error.filter(|e| !e.is_empty()) {
+            return Err(HotworxError::Http {
+                status: 200,
+                body: err,
+            });
+        }
+        if let Some(status) = resp.status.filter(|s| s.eq_ignore_ascii_case("error")) {
+            return Err(HotworxError::Http {
+                status: 200,
+                body: format!("deleteSession returned status={:?}", status),
+            });
+        }
         Ok(())
     }
 

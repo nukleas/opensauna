@@ -1,6 +1,6 @@
 [package]
 name = "bookworx"
-version = "0.2.0"
+version = "0.3.1"
 description = "BookWorx - Hotworx session booking app"
 authors = ["Nader Heidari"]
 edition = "2021"

@@ -38,7 +38,6 @@ pub fn BookingPage() -> impl IntoView {
     let booking_progress = RwSignal::new(0usize);
     let booking_total = RwSignal::new(0usize);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
-    let success_msg: RwSignal<Option<String>> = RwSignal::new(None);
 
     // Fetch session types when date changes
     Effect::new(move |_| {
@@ -186,10 +185,7 @@ pub fn BookingPage() -> impl IntoView {
             let outcome = book_slots(auth, toast, bookables, loc_id, date, booking_progress).await;
 
             if outcome.all_succeeded() {
-                success_msg.set(Some(format!(
-                    "Successfully booked {} session(s)!",
-                    outcome.total
-                )));
+                toast.success(format!("Booked {} session(s)!", outcome.total));
                 navigate_to("/");
             } else {
                 error.set(Some(format!(
