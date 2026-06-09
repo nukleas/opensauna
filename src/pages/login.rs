@@ -1,4 +1,4 @@
-use crate::components::{Button, IconFlame, LoadingOverlay, TextInput};
+use crate::components::{Button, IconStones, LoadingOverlay, TextInput};
 use crate::models::auth::LoginResponse;
 use crate::state::use_auth_state;
 use crate::utils::nav::go as navigate_to;
@@ -106,7 +106,7 @@ pub fn LoginPage() -> impl IntoView {
             <div class="login-container">
                 <div class="login-header">
                     <div class="login-logo">
-                        <IconFlame size=crate::components::icons::IconSize::Xl />
+                        <IconStones size=crate::components::icons::IconSize::Xl />
                     </div>
                     <h1 class="login-title">"OPENSAUNA"</h1>
                     <p class="login-subtitle">"Sign in to your account"</p>

@@ -1,0 +1,60 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>OpenSauna macOS app icon — rounded squircle tile on a transparent canvas (macOS icon grid)</title>
+  <defs>
+    <linearGradient id="tile" x1="120" y1="80" x2="920" y2="980" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFCB5C"/>
+      <stop offset="0.42" stop-color="#F2872B"/>
+      <stop offset="0.78" stop-color="#C03A14"/>
+      <stop offset="1" stop-color="#7E1E0C"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="512" cy="600" r="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFE3A6" stop-opacity="0.55"/>
+      <stop offset="0.55" stop-color="#FFC061" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#FFC061" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="stone" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#574033"/>
+      <stop offset="0.5" stop-color="#2E1E16"/>
+      <stop offset="1" stop-color="#1C120D"/>
+    </linearGradient>
+    <linearGradient id="steam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFF6E9" stop-opacity="0"/>
+      <stop offset="0.4" stop-color="#FFF6E9" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#FFF6E9" stop-opacity="0.9"/>
+    </linearGradient>
+    <!-- macOS grid: rounded tile, 824x824 centred with ~100px transparent margins -->
+    <clipPath id="tileClip">
+      <rect x="100" y="100" width="824" height="824" rx="185" ry="185"/>
+    </clipPath>
+  </defs>
+
+  <!-- Soft drop shadow so the tile "floats", Apple-style -->
+  <rect x="100" y="118" width="824" height="824" rx="185" ry="185" fill="#000000" opacity="0.20"
+        filter="blur(22px)" transform="translate(0,8)"/>
+
+  <g clip-path="url(#tileClip)">
+    <!-- Reuse the full-bleed artwork, scaled into the 824px tile (100 + 0.8047*1024) -->
+    <g transform="translate(100,100) scale(0.8046875)">
+      <rect width="1024" height="1024" fill="url(#tile)"/>
+      <rect width="1024" height="1024" fill="url(#glow)"/>
+
+      <g stroke="url(#steam)" stroke-width="26" stroke-linecap="round" fill="none">
+        <path d="M455 372 C 415 320, 495 286, 455 232 C 423 190, 470 156, 455 120"/>
+        <path d="M566 384 C 610 330, 528 296, 572 240 C 600 200, 556 168, 572 138"/>
+      </g>
+
+      <g stroke="#140C08" stroke-width="6">
+        <ellipse cx="512" cy="690" rx="172" ry="86" fill="url(#stone)" transform="rotate(-3 512 690)"/>
+        <ellipse cx="512" cy="566" rx="133" ry="71" fill="url(#stone)" transform="rotate(4 512 566)"/>
+        <ellipse cx="512" cy="462" rx="98"  ry="57" fill="url(#stone)" transform="rotate(-4 512 462)"/>
+        <ellipse cx="512" cy="386" rx="64"  ry="42" fill="url(#stone)" transform="rotate(3 512 386)"/>
+      </g>
+
+      <g fill="none" stroke="#FFD79A" stroke-width="10" stroke-linecap="round" opacity="0.85">
+        <path d="M372 668 C 410 628, 470 612, 512 612" transform="rotate(-3 512 690)"/>
+        <path d="M398 548 C 432 514, 482 502, 516 504" transform="rotate(4 512 566)"/>
+        <path d="M430 448 C 456 424, 492 416, 520 418" transform="rotate(-4 512 462)"/>
+      </g>
+    </g>
+  </g>
+</svg>

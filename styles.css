@@ -564,7 +564,7 @@ body {
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: 0.1em;
-  background: linear-gradient(135deg, var(--primary) 0%, hsl(35 100% 60%) 50%, var(--accent) 100%);
+  background: linear-gradient(135deg, hsl(40 100% 62%) 0%, var(--primary) 48%, hsl(8 82% 50%) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1937,6 +1937,22 @@ body {
   border-style: solid;
 }
 
+.set-favorite-btn:active {
+  transform: scale(0.985);
+}
+
+/* Saved state — solid, warm, unmistakably "done" */
+.set-favorite-btn.favorited {
+  background: var(--primary-glow);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  cursor: default;
+}
+
+.set-favorite-btn.favorited:active {
+  transform: none;
+}
+
 /* ===== Toast Notifications ===== */
 .toast {
   position: fixed;
@@ -2216,4 +2232,18 @@ body {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* ===== Tap feedback — press states for touch (added in UI polish pass) ===== */
+.session-type-card:active,
+.time-slot:active,
+.filter-btn:active,
+.location-card:active {
+  transform: scale(0.98);
+  filter: brightness(1.06);
+}
+
+.session-start-btn:active,
+.logout-btn:active {
+  transform: scale(0.97);
 }

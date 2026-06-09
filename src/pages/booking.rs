@@ -38,6 +38,8 @@ pub fn BookingPage() -> impl IntoView {
     let booking_progress = RwSignal::new(0usize);
     let booking_total = RwSignal::new(0usize);
     let error: RwSignal<Option<String>> = RwSignal::new(None);
+    // Whether the current session type is saved as the Quick Book favorite.
+    let favorited = RwSignal::new(false);
 
     // Fetch session types when date changes
     Effect::new(move |_| {
@@ -260,7 +262,10 @@ pub fn BookingPage() -> impl IntoView {
                                             view! {
                                                 <button
                                                     class=move || if is_selected() { "session-type-card selected" } else { "session-type-card" }
-                                                    on:click=move |_| selected_session_type.set(Some(st_for_click.clone()))
+                                                    on:click=move |_| {
+                                                        selected_session_type.set(Some(st_for_click.clone()));
+                                                        favorited.set(false);
+                                                    }
                                                 >
                                                     <span class="session-type-name">{display_name}</span>
                                                 </button>
@@ -279,7 +284,8 @@ pub fn BookingPage() -> impl IntoView {
                             let loc_id = location_id();
                             view! {
                                 <button
-                                    class="set-favorite-btn"
+                                    class=move || if favorited.get() { "set-favorite-btn favorited" } else { "set-favorite-btn" }
+                                    disabled=move || favorited.get()
                                     on:click=move |_| {
                                         let type_value = session_type_value.clone();
                                         let type_display = session_type_display.clone();
@@ -313,13 +319,24 @@ pub fn BookingPage() -> impl IntoView {
                                                 "sessionTypeDisplay": type_display,
                                             });
                                             match JsFuture::from(invoke("store_preferred_session_type", args)).await {
-                                                Ok(_) => log("[Booking] Saved favorite session type"),
-                                                Err(e) => log(&format!("[Booking] Failed to save favorite: {:?}", e)),
+                                                Ok(_) => {
+                                                    log("[Booking] Saved favorite session type");
+                                                    favorited.set(true);
+                                                    toast.success("Saved to Quick Book ★");
+                                                }
+                                                Err(e) => {
+                                                    log(&format!("[Booking] Failed to save favorite: {:?}", e));
+                                                    toast.error("Couldn't save favorite — try again");
+                                                }
                                             }
                                         });
                                     }
                                 >
-                                    "Set as Favorite for Quick Book"
+                                    {move || if favorited.get() {
+                                        "★ Saved to Quick Book"
+                                    } else {
+                                        "Set as Favorite for Quick Book"
+                                    }}
                                 </button>
                             }
                         })

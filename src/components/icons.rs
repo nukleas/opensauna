@@ -407,6 +407,38 @@ pub fn IconFlame(
     }
 }
 
+/// Stacked sauna stones with rising steam — the OpenSauna brand glyph.
+#[component]
+pub fn IconStones(
+    #[prop(optional)] size: IconSize,
+    #[prop(optional, into)] class: String,
+) -> impl IntoView {
+    let s = size.size();
+    view! {
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width=s
+            height=s
+            viewBox="0 0 24 24"
+            fill="none"
+            class=class
+        >
+            // rising steam (löyly)
+            <g stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.85">
+                <path d="M10.6 7.3c-.9-1 .3-1.7-.5-2.8" />
+                <path d="M13.5 7.5c1-.9-.2-1.7.6-2.9" />
+            </g>
+            // cairn of stones
+            <g fill="currentColor">
+                <ellipse cx="12" cy="17.2" rx="6.1" ry="2.7" />
+                <ellipse cx="12" cy="13.3" rx="4.7" ry="2.2" />
+                <ellipse cx="12" cy="9.9" rx="3.5" ry="1.8" />
+                <ellipse cx="12" cy="7.1" rx="2.4" ry="1.5" />
+            </g>
+        </svg>
+    }
+}
+
 #[component]
 pub fn IconZap(
     #[prop(optional)] size: IconSize,
