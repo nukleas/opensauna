@@ -108,7 +108,10 @@ async fn login_sends_hashed_password_and_app_headers() {
         .and(path("/api/v1/loginwithpassword"))
         .and(header("Content-Type", "application/x-www-form-urlencoded"))
         .and(header("User-Agent", "okhttp/4.12.0"))
-        .and(header("application-version", "6.5.5"))
+        .and(header(
+            "application-version",
+            hotworx_api::headers::APP_VERSION,
+        ))
         .and(header("device-id", "test-device"))
         .and(header("sec-ch-ua-platform", "Android"))
         .and(body_string_contains(format!("password={}", hashed)))

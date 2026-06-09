@@ -10,7 +10,7 @@ pub const BASE_URL: &str = "https://sailposapi.hotworx.net/api/v1";
 /// HOTWORX Android app version this crate targets. Bumping this when the
 /// upstream app updates is the most common reason to publish a new release
 /// of `hotworx-api`.
-pub const APP_VERSION: &str = "6.5.5";
+pub const APP_VERSION: &str = "6.6.3";
 
 /// User-Agent sent on every request (matches the Android `okhttp` build).
 pub const USER_AGENT: &str = "okhttp/4.12.0";
