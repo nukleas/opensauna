@@ -7,6 +7,17 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Per-release binaries and auto-generated notes also live on the
 [GitHub Releases](../../releases) page.
 
+## [0.4.2] - 2026-06-13
+
+Hotfix for 0.4.1, which tagged but failed to publish: the Windows bundle step
+broke, blocking the release. Ships the 0.4.1 signing work below plus the fix.
+
+### Fixed
+
+- **Windows desktop build.** The `NO_COLOR=false` prefix on the Trunk
+  `beforeBuildCommand` is Unix-only shell syntax and failed on the Windows
+  runner; reverted to a plain `trunk build` so the bundle step succeeds.
+
 ## [0.4.1] - 2026-06-13
 
 Release-engineering hardening — the macOS build is now properly signed and
