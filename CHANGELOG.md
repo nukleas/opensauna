@@ -7,6 +7,26 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Per-release binaries and auto-generated notes also live on the
 [GitHub Releases](../../releases) page.
 
+## [0.4.1] - 2026-06-13
+
+Release-engineering hardening — the macOS build is now properly signed and
+notarized, so the downloaded DMG opens without Gatekeeper warnings.
+
+### Changed
+
+- **macOS releases are signed with a Developer ID Application certificate and
+  notarized + stapled** in CI, so a downloaded DMG is accepted by Gatekeeper
+  with no "unidentified developer" prompt. The signing identity is auto-detected
+  from the imported certificate, so there's no brittle hand-set identity string.
+- Dev/build commands force colored Trunk output (`NO_COLOR=false`).
+
+### Added
+
+- `docs/SIGNING.md` — per-platform signing reference (macOS Developer ID,
+  Android keystore) and the deliberate choice to ship Windows **unsigned** (a
+  one-click SmartScreen "More info → Run anyway") rather than pay for an
+  Authenticode certificate.
+
 ## [0.4.0] - 2026-06-08
 
 The OpenSauna rebrand release: renamed and re-iconed, with a round of feature
