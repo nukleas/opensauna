@@ -151,15 +151,26 @@ jobs:
             -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PW" "$KEYCHAIN_PATH" >/dev/null
           security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
+          # Discover the actual identity inside the imported cert instead of
+          # trusting a hand-set string (which caused "no identity found").
+          echo "Identities in imported keychain:"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+          SIGN_ID=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
+            | sed -n 's/.*"\(Developer ID Application:.*\)".*/\1/p' | head -1)
+          if [ -z "$SIGN_ID" ]; then
+            echo "::error::APPLE_CERTIFICATE_BASE64 contains no 'Developer ID Application' identity (see list above). Re-export that cert + its private key from Keychain Access as a .p12 and update the secret."
+            exit 1
+          fi
+          echo "Signing with: $SIGN_ID"
+          echo "APPLE_SIGNING_IDENTITY=$SIGN_ID" >> "$GITHUB_ENV"
           echo "MACOS_SIGN=1" >> "$GITHUB_ENV"
 
       - name: Build Tauri bundle
         env:
-          # macOS: env-driven signing identity overrides the ad-hoc "-" in
-          # tauri.conf.json. Tauri auto-notarizes when the APPLE_ID trio is
-          # present and the bundle is Developer ID signed. On Linux/Windows
-          # these are simply empty and ignored.
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_SIGNING_IDENTITY is exported to $GITHUB_ENV by the import
+          # step above (auto-detected from the cert). Tauri auto-notarizes
+          # when the APPLE_ID trio is present and the bundle is Developer ID
+          # signed. On Linux/Windows these are empty and ignored.
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
