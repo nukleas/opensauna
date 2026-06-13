@@ -7,6 +7,15 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Per-release binaries and auto-generated notes also live on the
 [GitHub Releases](../../releases) page.
 
+## [0.4.3] - 2026-06-13
+
+### Fixed
+
+- **macOS DMG is now notarized + stapled.** Tauri notarizes the `.app` but not
+  the `.dmg` wrapper, so the downloaded DMG still tripped Gatekeeper ("Apple
+  could not verify it is free of malware") on open. CI now submits the DMG to
+  Apple's notary and staples the ticket, so the downloaded file opens clean.
+
 ## [0.4.2] - 2026-06-13
 
 Hotfix for 0.4.1, which tagged but failed to publish: the Windows bundle step

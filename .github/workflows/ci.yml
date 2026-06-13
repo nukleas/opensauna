@@ -182,6 +182,28 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: cargo tauri build
 
+      # Tauri notarizes + staples the .app, but NOT the .dmg wrapper that users
+      # download — so an un-notarized DMG still trips Gatekeeper on open. Submit
+      # the DMG itself and staple the ticket so the downloaded file is clean.
+      - name: Notarize and staple the DMG (macOS)
+        if: matrix.os == 'macos-latest' && env.MACOS_SIGN == '1'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          DMG=$(ls target/release/bundle/dmg/*.dmg 2>/dev/null | head -1)
+          if [ -z "$DMG" ]; then
+            echo "::error::No DMG produced to notarize."
+            exit 1
+          fi
+          echo "Notarizing $DMG"
+          xcrun notarytool submit "$DMG" \
+            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_PASSWORD" --wait
+          xcrun stapler staple "$DMG"
+          # Fail the build if Gatekeeper would still reject the downloaded DMG.
+          spctl -a -t open --context context:primary-signature -vvv "$DMG"
+
       - name: Upload bundle
         uses: actions/upload-artifact@v4
         with:
