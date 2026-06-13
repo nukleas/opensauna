@@ -1,14 +1,15 @@
 # Release signing
 
-Release artifacts are built and signed in CI (`.github/workflows/ci.yml`) on a
-`vX.Y.Z` tag. Signing is **gated**: off-tag builds warn and ship unsigned (fine
-for verification); on a tag, a missing signing secret **fails** the build so a
-release is never published unsigned.
+Release artifacts are built and signed in CI (`.github/workflows/ci.yml`). The
+desktop build (incl. macOS signing) runs **only on `vX.Y.Z` tags**, and the
+macOS certificate lives in a **`release` GitHub Environment whose deployment
+policy permits only `v*` tags** — so the Developer ID key is unreachable from
+PRs, forks, or branch pushes.
 
 | Platform | Mechanism | Status |
 |----------|-----------|--------|
 | Android  | Keystore in GH secrets (already set — **never regenerate**) | ✅ signed |
-| macOS    | Developer ID Application cert + notarization | ✅ signed (secrets below) |
+| macOS    | Developer ID Application cert + notarization (app **and** DMG) | ✅ signed |
 | Windows  | Intentionally **unsigned** — SmartScreen "More info → Run anyway" | by choice (see below) |
 | Linux    | none (AppImage/deb run unsigned) | n/a |
 
@@ -16,48 +17,42 @@ release is never published unsigned.
 
 ## macOS (Apple Developer, $99/yr)
 
-Why: the app is currently ad-hoc signed (`signingIdentity: "-"`), so Gatekeeper
-blocks it for anyone who downloads the DMG. A **Developer ID Application** cert
-plus notarization makes it open with zero warnings on any Mac.
+Signed with a **Developer ID Application** certificate and notarized so the
+downloaded DMG opens with no Gatekeeper warning. CI **auto-detects** the
+Developer ID identity from the imported cert (there is no `APPLE_SIGNING_IDENTITY`
+secret), notarizes + staples the `.app`, and then **also notarizes + staples the
+`.dmg`** (Tauri only does the `.app`, so the DMG step is a separate `notarytool`
+call — without it the downloaded DMG still trips Gatekeeper).
 
-### One-time setup
+### Where the secrets live
 
-1. **Create the certificate** — https://developer.apple.com/account/resources/certificates/list
-   → **+** → **Developer ID Application** (only the Account Holder can create
-   this). Generate a CSR from Keychain Access (*Certificate Assistant ▸ Request
-   a Certificate From a Certificate Authority*, "Saved to disk"), upload it,
-   download the `.cer`, double-click to install into your login keychain.
-2. **Export as `.p12`** — in Keychain Access, find the cert, expand it, select
-   **both** the cert and its private key → right-click → *Export 2 items* →
-   `.p12`, set a password (you'll reuse it as `APPLE_CERTIFICATE_PASSWORD`).
-3. **Base64-encode it** for the secret:
-   ```bash
-   base64 -i Certificates.p12 | pbcopy   # now paste into the secret
-   ```
-4. **App-specific password** — https://account.apple.com → Sign-In & Security ▸
-   App-Specific Passwords ▸ generate one (this is `APPLE_PASSWORD`, **not** your
-   Apple ID password).
-5. **Team ID** — https://developer.apple.com/account → Membership details.
-6. **Signing identity string** — exactly as shown by:
-   ```bash
-   security find-identity -v -p codesigning
-   # e.g. "Developer ID Application: Your Name (TEAMID1234)"
-   ```
+The certificate is an **Environment secret** in the `release` environment
+(Settings ▸ Environments ▸ release), which only `v*` tags may deploy to. The
+non-key notarization creds are ordinary repo secrets.
 
-### GitHub secrets (Settings ▸ Secrets and variables ▸ Actions ▸ Secrets)
+| Secret | Scope | Value |
+|--------|-------|-------|
+| `APPLE_CERTIFICATE_BASE64` | **`release` env** | base64 of the Developer ID `.p12` (cert **+** private key) |
+| `APPLE_CERTIFICATE_PASSWORD` | repo | the `.p12` export password |
+| `APPLE_ID` | repo | your Apple ID email |
+| `APPLE_APP_SPECIFIC_PASSWORD` | repo | app-specific password (account.apple.com ▸ Sign-In & Security) |
+| `APPLE_TEAM_ID` | repo | Team ID (developer.apple.com ▸ Membership) |
 
-| Secret | Value |
-|--------|-------|
-| `APPLE_CERTIFICATE_BASE64` | base64 of the `.p12` (step 3) |
-| `APPLE_CERTIFICATE_PASSWORD` | the `.p12` export password (step 2) |
-| `APPLE_SIGNING_IDENTITY` | the full identity string (step 6) |
-| `APPLE_ID` | your Apple ID email |
-| `APPLE_APP_SPECIFIC_PASSWORD` | app-specific password (step 4) |
-| `APPLE_TEAM_ID` | Team ID (step 5) |
+### Rotating / re-exporting the cert
 
-> Note: CI sets `APPLE_SIGNING_IDENTITY` as an env var to override the `"-"` in
-> `tauri.conf.json`. If a signed build ever still comes out ad-hoc, remove the
-> `signingIdentity` line from the config so the env var is the only source.
+Export **only** the Developer ID identity: Keychain Access ▸ login ▸ **My
+Certificates** ▸ expand the *Developer ID Application* entry ▸ select the cert
+**and** its private key ▸ *Export 2 items* ▸ `.p12`. Then:
+
+```bash
+base64 -i ~/devid.p12 | gh secret set APPLE_CERTIFICATE_BASE64 --env release
+gh secret set APPLE_CERTIFICATE_PASSWORD --env release --body "<that p12 password>"
+```
+
+> Gotchas learned the hard way: the secret must be a **Developer ID Application**
+> cert (not *Apple Distribution*, which is App-Store-only); the export must
+> include the **private key** (a cert-only `.p12` yields "0 valid identities");
+> and `security import` must **not** use `-t cert` (that drops the key).
 
 ---
 
