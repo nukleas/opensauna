@@ -99,6 +99,12 @@ claude mcp add hotworx hotworx-mcp
 See [`hotworx-mcp/README.md`](hotworx-mcp/README.md) for the tool list and
 authentication flow.
 
+### Installing a release
+
+macOS and Android builds are code-signed (notarized DMG / signed APK). The
+**Windows** installer is unsigned, so SmartScreen may warn on first launch —
+click **More info → Run anyway**. See [`docs/SIGNING.md`](docs/SIGNING.md).
+
 ### Android
 
 CI builds signed APKs on pushes to `main` and on tagged releases. See

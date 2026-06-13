@@ -5,11 +5,11 @@ Release artifacts are built and signed in CI (`.github/workflows/ci.yml`) on a
 for verification); on a tag, a missing signing secret **fails** the build so a
 release is never published unsigned.
 
-| Platform | Mechanism | Required to "run right" |
-|----------|-----------|--------------------------|
-| Android  | Keystore in GH secrets (already set — **never regenerate**) | ✅ done |
-| macOS    | Developer ID Application cert + notarization | secrets below |
-| Windows  | Azure Trusted Signing | secrets + repo vars below |
+| Platform | Mechanism | Status |
+|----------|-----------|--------|
+| Android  | Keystore in GH secrets (already set — **never regenerate**) | ✅ signed |
+| macOS    | Developer ID Application cert + notarization | ✅ signed (secrets below) |
+| Windows  | Intentionally **unsigned** — SmartScreen "More info → Run anyway" | by choice (see below) |
 | Linux    | none (AppImage/deb run unsigned) | n/a |
 
 ---
@@ -61,50 +61,37 @@ plus notarization makes it open with zero warnings on any Mac.
 
 ---
 
-## Windows (Azure Trusted Signing, ~$10/mo)
+## Windows — intentionally unsigned
 
-Why: the MSI/EXE are unsigned, so SmartScreen warns on every download. Azure
-Trusted Signing is the cheapest cert that gives real signatures.
+The Windows MSI/EXE ship **unsigned by choice.** The app runs fine; the only
+difference is that on first launch Windows SmartScreen shows a blue dialog —
+the user clicks **More info → Run anyway** once, and it's trusted from then on.
 
-### One-time setup
+A real Authenticode signature (no warning) requires an identity-validated cert.
+The cheapest path is **Azure Trusted Signing** (~$10/mo + an Azure subscription,
+App Registration, and a government-ID identity validation). That overhead wasn't
+worth it for this project. If that calculus changes, the setup is: create a
+Trusted Signing account + Public Trust certificate profile, an Entra App
+Registration with the **Trusted Signing Certificate Profile Signer** role, then
+wire `cargo tauri build --config '{"bundle":{"windows":{"signCommand":"trusted-signing-cli -e <endpoint> -a <account> -c <profile> -d OpenSauna %1"}}}'`
+with `AZURE_CLIENT_ID/SECRET/TENANT_ID` in CI.
 
-1. In the Azure portal, create a **Trusted Signing account** and a
-   **Certificate Profile** (identity-validated). Note the **endpoint** region
-   (e.g. `https://wus2.codesigning.azure.net`), the **account name**, and the
-   **profile name**.
-2. Create an **App Registration** (Entra ID) with a client secret, and grant it
-   the **Trusted Signing Certificate Profile Signer** role on the account.
+### README note for users
 
-### GitHub secrets
-
-| Secret | Value |
-|--------|-------|
-| `AZURE_CLIENT_ID` | App Registration application (client) ID |
-| `AZURE_CLIENT_SECRET` | client secret |
-| `AZURE_TENANT_ID` | directory (tenant) ID |
-
-### GitHub repo Variables (same page ▸ Variables tab — not secret)
-
-| Variable | Value |
-|----------|-------|
-| `AZURE_ENDPOINT` | e.g. `https://wus2.codesigning.azure.net` |
-| `AZURE_ACCOUNT` | your Trusted Signing account name |
-| `AZURE_PROFILE` | your certificate profile name |
-
-CI installs `trusted-signing-cli` and passes a `signCommand` to Tauri only when
-`AZURE_CLIENT_ID` is present.
+> **Windows:** the installer is unsigned, so SmartScreen may warn on first run.
+> Click **More info → Run anyway**. (macOS and Android builds are signed.)
 
 ---
 
 ## Releasing
 
-Once secrets/vars are in place, the existing tag-driven flow signs everything:
+The existing tag-driven flow signs macOS + Android automatically:
 
 ```bash
 # bump version in src-tauri/tauri.conf.json + src-tauri/Cargo.toml first
 git tag v0.5.0 && git push origin v0.5.0
 ```
 
-CI builds signed macOS (notarized DMG/.app), signed Windows (MSI/EXE), signed
-Android (universal APK/AAB), and unsigned Linux, then publishes the GitHub
-Release.
+CI builds **signed/notarized macOS** (DMG/.app), **signed Android** (universal
+APK/AAB), **unsigned Windows** (MSI/EXE — SmartScreen one-click), and unsigned
+Linux, then publishes the GitHub Release.
