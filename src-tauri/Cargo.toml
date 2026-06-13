@@ -1,6 +1,6 @@
 [package]
 name = "opensauna"
-version = "0.4.2"
+version = "0.4.3"
 description = "OpenSauna - Hotworx session booking app"
 authors = ["Nader Heidari"]
 edition = "2021"
