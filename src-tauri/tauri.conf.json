@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "OpenSauna",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "identifier": "com.nukleas.opensauna",
   "build": {
-    "beforeDevCommand": "NO_COLOR=false trunk serve",
+    "beforeDevCommand": "trunk serve",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "NO_COLOR=false trunk build",
+    "beforeBuildCommand": "trunk build",
     "frontendDist": "../dist"
   },
   "app": {
