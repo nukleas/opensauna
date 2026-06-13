@@ -122,8 +122,78 @@ jobs:
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2" --locked || true
 
+      # ── Code signing (so release artifacts actually "run right") ───────
+      # macOS: import the Developer ID cert into a temp keychain so Tauri can
+      # sign + notarize. Windows: install the Azure Trusted Signing CLI.
+      # Both gate like the Android job — required on a tag, warn off-tag.
+      - name: Import Apple Developer ID certificate (macOS)
+        if: matrix.os == 'macos-latest'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+              echo "::error::APPLE_CERTIFICATE is not set — cannot sign/notarize the macOS release for $GITHUB_REF_NAME. See docs/SIGNING.md."
+              exit 1
+            fi
+            echo "::warning::No Apple certificate — building an ad-hoc macOS app. Gatekeeper will block it for anyone who downloads it."
+            exit 0
+          fi
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PW="$APPLE_CERTIFICATE_PASSWORD"
+          security create-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN_PATH"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PW" "$KEYCHAIN_PATH" >/dev/null
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
+          echo "MACOS_SIGN=1" >> "$GITHUB_ENV"
+
+      - name: Configure Windows code signing (Azure Trusted Signing)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          if [ -z "$AZURE_CLIENT_ID" ]; then
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+              echo "::error::AZURE_CLIENT_ID is not set — cannot sign the Windows release for $GITHUB_REF_NAME. See docs/SIGNING.md."
+              exit 1
+            fi
+            echo "::warning::No Azure credentials — building an UNSIGNED Windows app. SmartScreen will warn anyone who downloads it."
+            exit 0
+          fi
+          cargo install trusted-signing-cli --locked || true
+          echo "WINDOWS_SIGN=1" >> "$GITHUB_ENV"
+
       - name: Build Tauri bundle
-        run: cargo tauri build
+        shell: bash
+        env:
+          # macOS: env-driven signing identity overrides the ad-hoc "-" in
+          # tauri.conf.json. Tauri auto-notarizes when the APPLE_ID trio is
+          # present and the bundle is Developer ID signed.
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows: Azure Trusted Signing auth (secrets) + non-secret
+          # endpoint/account/profile (repo Variables → Settings ▸ Variables).
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZ_ENDPOINT: ${{ vars.AZURE_ENDPOINT }}
+          AZ_ACCOUNT: ${{ vars.AZURE_ACCOUNT }}
+          AZ_PROFILE: ${{ vars.AZURE_PROFILE }}
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" && "${WINDOWS_SIGN:-0}" == "1" ]]; then
+            SIGN_CMD="trusted-signing-cli -e $AZ_ENDPOINT -a $AZ_ACCOUNT -c $AZ_PROFILE -d OpenSauna %1"
+            cargo tauri build --config "{\"bundle\":{\"windows\":{\"signCommand\":\"$SIGN_CMD\"}}}"
+          else
+            cargo tauri build
+          fi
 
       - name: Upload bundle
         uses: actions/upload-artifact@v4
