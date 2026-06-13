@@ -147,18 +147,24 @@ jobs:
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN_PATH"
           echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          security import "$RUNNER_TEMP/cert.p12" -P "$APPLE_CERTIFICATE_PASSWORD" \
-            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PW" "$KEYCHAIN_PATH" >/dev/null
+          # Import the whole .p12 (cert + private key). Importing keys too,
+          # not just -t cert, so a Developer ID *identity* lands in the chain.
+          if ! security import "$RUNNER_TEMP/cert.p12" -P "$APPLE_CERTIFICATE_PASSWORD" \
+                 -A -f pkcs12 -k "$KEYCHAIN_PATH"; then
+            echo "::error::Could not import the .p12 — wrong APPLE_CERTIFICATE_PASSWORD, or the file isn't a valid PKCS#12 export."
+            exit 1
+          fi
+          # Non-fatal: only relevant once a private key is present.
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PW" "$KEYCHAIN_PATH" >/dev/null 2>&1 || true
           security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
           # Discover the actual identity inside the imported cert instead of
           # trusting a hand-set string (which caused "no identity found").
           echo "Identities in imported keychain:"
-          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH" || true
           SIGN_ID=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
             | sed -n 's/.*"\(Developer ID Application:.*\)".*/\1/p' | head -1)
           if [ -z "$SIGN_ID" ]; then
-            echo "::error::APPLE_CERTIFICATE_BASE64 contains no 'Developer ID Application' identity (see list above). Re-export that cert + its private key from Keychain Access as a .p12 and update the secret."
+            echo "::error::No usable 'Developer ID Application' signing identity in the .p12. Most likely the export included the certificate but NOT its private key — in Keychain Access, expand the cert, select BOTH the certificate and the key under it, and 'Export 2 items' as .p12."
             exit 1
           fi
           echo "Signing with: $SIGN_ID"
