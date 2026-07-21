@@ -27,3 +27,19 @@ fn server_error_clears_success() {
     assert!(!resp.is_success());
     assert_eq!(resp.error.as_deref(), Some("Invalid credentials"));
 }
+
+#[test]
+fn object_shaped_error_is_coerced_to_a_message_instead_of_failing_to_decode() {
+    let json = r#"{"msg":null,"token":null,"two_factor":null,"error":{"message":"Account locked","code":423},"status":"error"}"#;
+    let resp: LoginResponse = serde_json::from_str(json).unwrap();
+    assert!(!resp.is_success());
+    assert_eq!(resp.error.as_deref(), Some("Account locked"));
+}
+
+#[test]
+fn object_shaped_error_without_known_key_falls_back_to_json() {
+    let json = r#"{"msg":null,"token":null,"two_factor":null,"error":{"email":["is required"]},"status":"error"}"#;
+    let resp: LoginResponse = serde_json::from_str(json).unwrap();
+    assert!(!resp.is_success());
+    assert!(resp.error.unwrap().contains("is required"));
+}
