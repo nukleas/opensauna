@@ -183,7 +183,7 @@ async fn get_locations_accepts_top_level_shape() {
         .and(path("/api/v1/booking/getBookingLocations_v2"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "locations": [
-                { "location_id": "12345", "location_name": "Rancho Santa Margarita, CA" }
+                { "location_id": "12345", "location_name": "Springfield, XX" }
             ]
         })))
         .mount(&server)
@@ -192,7 +192,7 @@ async fn get_locations_accepts_top_level_shape() {
     let client = client_at(&server);
     let locs = client.get_locations().await.unwrap();
     assert_eq!(locs.len(), 1);
-    assert_eq!(locs[0].location_name, "Rancho Santa Margarita, CA");
+    assert_eq!(locs[0].location_name, "Springfield, XX");
     assert_eq!(locs[0].location_id, "12345");
 }
 
@@ -287,13 +287,14 @@ async fn decode_excerpt_is_truncated() {
 
 #[tokio::test]
 async fn get_locations_accepts_numeric_ids_and_fees() {
-    // Live body seen 2026-10-19: `location_id` and `reciprocal_fees` are
-    // bare integers, and the whole page failed to load over it.
+    // Shape of the live body seen 2026-10-19: `location_id` and
+    // `reciprocal_fees` are bare integers, and the whole page failed to load
+    // over it. Values are fixtures, not real studio data.
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/v1/booking/getBookingLocations_v2"))
         .respond_with(ResponseTemplate::new(200).set_body_string(
-            r#"{"frequently_locations":[{"location_id":14,"location_code":"CA0001","location_name":"Rancho Santa Margarita, CA","currency_symbol":"$","reciprocal_fees":0,"description":"","location_tier":"Tier 2","tier_badge":"https:\/\/sailpos.hotworx.net\/img\/icon\/tier2.png","is_allow":"yes"}],"locations":[{"location_id":14,"location_code":"CA0001","location_name":"Rancho Santa Margarita, CA ","location_tier":"Tier 2","currency_symbol":"$","reciprocal_fees":0,"description":"","tier_badge":"https:\/\/sailpos.hotworx.net\/img\/icon\/tier2.png","is_allow":"yes"}],"session_type":{"by_session_type":"By Session Type"}}"#,
+            r#"{"frequently_locations":[{"location_id":101,"location_code":"XX0001","location_name":"Springfield, XX","currency_symbol":"$","reciprocal_fees":0,"description":"","location_tier":"Tier 2","tier_badge":"https:\/\/example.invalid\/tier2.png","is_allow":"yes"}],"locations":[{"location_id":101,"location_code":"XX0001","location_name":"Springfield, XX ","location_tier":"Tier 2","currency_symbol":"$","reciprocal_fees":0,"description":"","tier_badge":"https:\/\/example.invalid\/tier2.png","is_allow":"yes"}],"session_type":{"by_session_type":"By Session Type"}}"#,
         ))
         .mount(&server)
         .await;
@@ -301,7 +302,7 @@ async fn get_locations_accepts_numeric_ids_and_fees() {
     let client = client_at(&server);
     let locs = client.get_locations().await.unwrap();
     assert_eq!(locs.len(), 1);
-    assert_eq!(locs[0].location_id, "14");
+    assert_eq!(locs[0].location_id, "101");
     assert_eq!(locs[0].reciprocal_fees.as_deref(), Some("0"));
     assert!(locs[0].is_allowed());
 }
