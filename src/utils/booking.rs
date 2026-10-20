@@ -57,7 +57,9 @@ impl BookingOutcome {
 /// dashboard could not be fetched.
 async fn pending_session_ids(date: &str) -> Option<HashSet<String>> {
     let args = crate::json_args!({ "currentDate": date });
-    let result = JsFuture::from(invoke("api_get_dashboard", args)).await.ok()?;
+    let result = JsFuture::from(invoke("api_get_dashboard", args))
+        .await
+        .ok()?;
     let env = serde_wasm_bindgen::from_value::<ApiEnvelope<DashboardData>>(result).ok()?;
     let sessions = env.data?.todays_pending_sessions.unwrap_or_default();
     Some(

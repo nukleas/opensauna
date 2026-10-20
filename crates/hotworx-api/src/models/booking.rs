@@ -119,7 +119,10 @@ impl BookSessionResponse {
         // studios return it as `false` on perfectly good bookings.
         let wants_payment = self.message_popup == Some(true)
             || self.card_available == Some(true)
-            || self.add_card_url.as_deref().is_some_and(|u| !u.trim().is_empty());
+            || self
+                .add_card_url
+                .as_deref()
+                .is_some_and(|u| !u.trim().is_empty());
         if wants_payment {
             return BookingOutcome::PaymentRequired {
                 message: self.server_message(),
@@ -136,12 +139,18 @@ impl BookSessionResponse {
     /// The most useful human-readable message in the response, falling back
     /// to the compact JSON of the whole body so nothing is silently dropped.
     pub fn server_message(&self) -> String {
-        [&self.text, &self.description, &self.msg, &self.message, &self.error]
-            .into_iter()
-            .flatten()
-            .find(|s| !s.trim().is_empty())
-            .cloned()
-            .unwrap_or_else(|| serde_json::to_string(self).unwrap_or_default())
+        [
+            &self.text,
+            &self.description,
+            &self.msg,
+            &self.message,
+            &self.error,
+        ]
+        .into_iter()
+        .flatten()
+        .find(|s| !s.trim().is_empty())
+        .cloned()
+        .unwrap_or_else(|| serde_json::to_string(self).unwrap_or_default())
     }
 }
 

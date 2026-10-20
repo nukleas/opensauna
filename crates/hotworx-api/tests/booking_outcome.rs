@@ -79,7 +79,8 @@ fn message_popup_means_payment_required() {
 fn home_studio_body_with_payment_status_false_is_still_accepted() {
     // Home studios return payment_status "false" on good bookings; only the
     // explicit payment markers may flip a booking to PaymentRequired.
-    let r = parse(r#"{"success":"true","session_id":123,"payment_status":"false","text":"Booked"}"#);
+    let r =
+        parse(r#"{"success":"true","session_id":123,"payment_status":"false","text":"Booked"}"#);
     assert_eq!(
         r.outcome(),
         BookingOutcome::Accepted {
@@ -101,7 +102,10 @@ fn unknown_success_string_is_not_a_rejection() {
 #[test]
 fn card_on_file_still_needs_confirmation() {
     let r = parse(r#"{"card_available":true,"payment_status":false,"text":"Confirm $10 fee"}"#);
-    assert!(matches!(r.outcome(), BookingOutcome::PaymentRequired { .. }));
+    assert!(matches!(
+        r.outcome(),
+        BookingOutcome::PaymentRequired { .. }
+    ));
 }
 
 #[test]
@@ -109,5 +113,8 @@ fn server_message_falls_back_to_raw_json() {
     let r = parse(r#"{"something_new":1}"#);
     let msg = r.server_message();
     assert!(msg.starts_with('{'), "expected JSON fallback, got {msg}");
-    assert!(msg.contains("\"status\""), "fallback should be the serialized body: {msg}");
+    assert!(
+        msg.contains("\"status\""),
+        "fallback should be the serialized body: {msg}"
+    );
 }

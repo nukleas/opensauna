@@ -188,7 +188,10 @@ pub fn BookingPage() -> impl IntoView {
 
             if outcome.all_succeeded() {
                 if outcome.verified {
-                    toast.success(format!("Booked {} session(s), confirmed on your schedule.", outcome.total));
+                    toast.success(format!(
+                        "Booked {} session(s), confirmed on your schedule.",
+                        outcome.total
+                    ));
                 } else {
                     toast.success(format!(
                         "Booked {} session(s). Could not re-check your schedule, please confirm it on the dashboard.",
