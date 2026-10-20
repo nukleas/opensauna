@@ -308,11 +308,11 @@ async fn get_locations_accepts_numeric_ids_and_fees() {
 }
 
 #[tokio::test]
-async fn calorie_stats_is_a_get_and_accepts_array_wrapped_data() {
-    // Live shape seen 2026-10-20: `data` is a one-element array. The
-    // official app issues a GET for this endpoint. Fixture values.
+async fn calorie_stats_is_a_post_and_accepts_array_wrapped_data() {
+    // Live shape seen 2026-10-20: `data` is a one-element array. The live
+    // server only routes POST here (GET gives 405). Fixture values.
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
+    Mock::given(method("POST"))
         .and(path("/api/v1/general/view_calorie_stats"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "msg": "success",
@@ -337,7 +337,7 @@ async fn calorie_stats_is_a_get_and_accepts_array_wrapped_data() {
 #[tokio::test]
 async fn calorie_stats_accepts_bare_object_data() {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
+    Mock::given(method("POST"))
         .and(path("/api/v1/general/view_calorie_stats"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "data": { "total_session": "7" }
@@ -352,7 +352,7 @@ async fn calorie_stats_accepts_bare_object_data() {
 
 #[tokio::test]
 async fn view_goals_is_a_get() {
-    // POSTing here gets a 405 HTML page from the server (observed 2026-10-20).
+    // POSTing here gets a 405 HTML page from the server (probed 2026-10-20).
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/v1/general/viewGoals"))

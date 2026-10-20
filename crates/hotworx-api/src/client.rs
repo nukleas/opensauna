@@ -357,7 +357,7 @@ impl HotworxClient {
 
     /// View the user's current goal settings.
     pub async fn view_goals(&self) -> Result<GoalsData> {
-        // GET only: the server answers a POST with 405 (observed 2026-10-20).
+        // GET only: the server answers a POST with 405 (probed 2026-10-20).
         let env: Envelope<GoalsData> = self.get("general/viewGoals", true).await?;
         env.into_data()
     }
@@ -449,7 +449,9 @@ impl HotworxClient {
     /// Lifetime calorie statistics.
     pub async fn get_calorie_stats(&self) -> Result<CalorieStats> {
         // `data` is a bare object on some backends and a one-element array
-        // on others (observed 2026-10-20). Accept both.
+        // on others (observed 2026-10-20). Accept both. POST only: the
+        // official interface declares GET, but the live server answers a GET
+        // here with 405 (probed 2026-10-20).
         #[derive(Deserialize)]
         #[serde(untagged)]
         enum OneOrMany {
@@ -463,7 +465,9 @@ impl HotworxClient {
                 OneOrMany::Many(Vec::new())
             }
         }
-        let env: Envelope<OneOrMany> = self.get("general/view_calorie_stats", true).await?;
+        let env: Envelope<OneOrMany> = self
+            .post_form("general/view_calorie_stats", &[], true)
+            .await?;
         match env.into_data()? {
             OneOrMany::One(stats) => Ok(*stats),
             OneOrMany::Many(mut list) => list.drain(..).next().ok_or_else(|| HotworxError::Http {
