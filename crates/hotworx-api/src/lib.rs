@@ -45,5 +45,5 @@ pub mod models;
 
 pub use auth::password_hash;
 pub use client::HotworxClient;
-pub use error::{HotworxError, Result};
+pub use error::{HotworxError, Result, DECODE_BODY_EXCERPT};
 pub use models::*;

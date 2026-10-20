@@ -100,6 +100,7 @@ fn decrypt_value(encrypted: &str, device_id: &str) -> Result<String, String> {
 /// failures get the `AUTH_EXPIRED:` prefix so `handle_invoke_error` in
 /// `src/state/auth_state.rs` can flip the user back to the login screen.
 fn ipc_error(err: HotworxError) -> String {
+    eprintln!("[API] {}", err);
     match err {
         HotworxError::AuthExpired => format!("{}: token expired", AUTH_EXPIRED_PREFIX),
         other => other.to_string(),

@@ -30,10 +30,19 @@ pub enum HotworxError {
     #[error("network error: {0}")]
     Network(#[from] reqwest::Error),
 
-    /// The response body was a 2xx but couldn't be deserialized.
-    #[error("could not decode response: {0}")]
-    Decode(#[from] serde_json::Error),
+    /// The response body was a 2xx but couldn't be deserialized. `body` is
+    /// the start of the raw response (at most [`DECODE_BODY_EXCERPT`]
+    /// bytes) so a shape change on HOTWORX's side is diagnosable from the
+    /// error alone.
+    #[error("could not decode response: {source}; body: {body}")]
+    Decode {
+        source: serde_json::Error,
+        body: String,
+    },
 }
+
+/// Maximum number of bytes of the raw body kept in [`HotworxError::Decode`].
+pub const DECODE_BODY_EXCERPT: usize = 600;
 
 impl HotworxError {
     /// Build an [`HotworxError::Http`] from a status code and an arbitrary
@@ -44,6 +53,23 @@ impl HotworxError {
             HotworxError::AuthExpired
         } else {
             HotworxError::Http { status, body }
+        }
+    }
+
+    /// Build an [`HotworxError::Decode`] keeping only the first
+    /// [`DECODE_BODY_EXCERPT`] bytes of `body` (cut on a char boundary).
+    pub(crate) fn decode(source: serde_json::Error, body: &str) -> Self {
+        let mut end = body.len().min(DECODE_BODY_EXCERPT);
+        while !body.is_char_boundary(end) {
+            end -= 1;
+        }
+        let mut excerpt = body[..end].to_string();
+        if end < body.len() {
+            excerpt.push('…');
+        }
+        HotworxError::Decode {
+            source,
+            body: excerpt,
         }
     }
 }

@@ -538,7 +538,7 @@ async fn consume_response<T: DeserializeOwned>(resp: reqwest::Response) -> Resul
     if !status.is_success() {
         return Err(HotworxError::from_status(status.as_u16(), body));
     }
-    Ok(serde_json::from_str(&body)?)
+    serde_json::from_str(&body).map_err(|e| HotworxError::decode(e, &body))
 }
 
 /// Generic envelope used by most HOTWORX `general/*` endpoints. Internal

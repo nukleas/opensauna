@@ -61,8 +61,7 @@ async fn server_551_maps_to_auth_expired() {
     Mock::given(method("GET"))
         .and(path("/api/v1/booking/getBookingLocations_v2"))
         .respond_with(
-            ResponseTemplate::new(551)
-                .set_body_string(r#"{"error":"Provided token is expired."}"#),
+            ResponseTemplate::new(551).set_body_string(r#"{"error":"Provided token is expired."}"#),
         )
         .mount(&server)
         .await;
@@ -238,4 +237,50 @@ async fn show_slots_accepts_data_wrapped_form() {
         .unwrap();
     assert_eq!(slots.len(), 1);
     assert_eq!(slots[0].time_slot.as_deref(), Some("10:00"));
+}
+
+#[tokio::test]
+async fn undecodable_body_surfaces_excerpt() {
+    // A 200 whose body doesn't match the model must say what came back,
+    // not just where serde gave up.
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/booking/getBookingLocations_v2"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "locations": [{ "location_id": "1", "location_name": null }]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    match client.get_locations().await {
+        Err(HotworxError::Decode { source, body }) => {
+            // serde names the offending type and offset but not the field;
+            // the body excerpt is what makes the failure diagnosable.
+            assert!(source.to_string().contains("null"), "{}", source);
+            assert!(body.contains("\"location_name\":null"), "{}", body);
+        }
+        other => panic!("expected Decode, got {:?}", other),
+    }
+}
+
+#[tokio::test]
+async fn decode_excerpt_is_truncated() {
+    let server = MockServer::start().await;
+    let long = "x".repeat(5000);
+    Mock::given(method("GET"))
+        .and(path("/api/v1/booking/getBookingLocations_v2"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(format!("<html>{}", long)))
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    match client.get_locations().await {
+        Err(HotworxError::Decode { body, .. }) => {
+            assert!(body.starts_with("<html>"));
+            assert!(body.ends_with('…'));
+            assert!(body.chars().count() <= hotworx_api::DECODE_BODY_EXCERPT + 1);
+        }
+        other => panic!("expected Decode, got {:?}", other),
+    }
 }

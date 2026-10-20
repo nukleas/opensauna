@@ -1,7 +1,7 @@
 use crate::components::toast::use_toast;
 use crate::components::{BottomNav, IconSearch, NavItem, PageLoading};
 use crate::models::location::{Location, LocationsResponse};
-use crate::state::{handle_invoke_error, use_auth_state};
+use crate::state::{handle_invoke_error, invoke_error_string, use_auth_state};
 use crate::utils::nav::go as navigate_to;
 use crate::utils::tauri::{invoke, log};
 use leptos::prelude::*;
@@ -53,7 +53,10 @@ pub fn LocationsPage() -> impl IntoView {
                     }
                     Err(e) => {
                         log(&format!("[Locations] Parse error: {:?}", e));
-                        error.set(Some("Failed to load locations".to_string()));
+                        error.set(Some(format!(
+                            "Failed to load locations: unreadable response ({:?})",
+                            e
+                        )));
                     }
                 },
                 Err(e) => {
@@ -62,7 +65,10 @@ pub fn LocationsPage() -> impl IntoView {
                         loading.set(false);
                         return;
                     }
-                    error.set(Some("Failed to load locations".to_string()));
+                    error.set(Some(format!(
+                        "Failed to load locations: {}",
+                        invoke_error_string(&e)
+                    )));
                 }
             }
 
