@@ -133,7 +133,7 @@ file is the single edit needed.
 
 ### Auth-expiry detection
 
-When the bearer token is no longer accepted (HTTP 401/403, or the
+When the bearer token is no longer accepted (HOTWORX's HTTP 551, or 401/403, or the
 backend has nothing stored), the SDK returns
 `HotworxError::AuthExpired`. The Tauri layer prefixes the error string
 sent across IPC with `AUTH_EXPIRED:`. The frontend's

@@ -8,7 +8,7 @@
 //! and the per-install device ID live in `~/.hotworx-mcp/config.json`.
 
 use anyhow::Result;
-use hotworx_api::{HotworxClient, HotworxError, password_hash};
+use hotworx_api::{BookingOutcome, HotworxClient, HotworxError, password_hash};
 use rmcp::{
     ServerHandler, ServiceExt,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
@@ -357,7 +357,31 @@ impl HotworxService {
             )
             .await
         {
-            Ok(v) => pretty(&v),
+            Ok(v) => {
+                let verdict = match v.outcome() {
+                    BookingOutcome::Accepted {
+                        session_id: Some(id),
+                    } => {
+                        format!(
+                            "BOOKED (session_id {id}). Confirm with hotworx_dashboard for {}.",
+                            args.date
+                        )
+                    }
+                    BookingOutcome::Accepted { session_id: None } => format!(
+                        "ACCEPTED but no session id returned. Confirm with hotworx_dashboard for {} before telling the user it is booked.",
+                        args.date
+                    ),
+                    BookingOutcome::PaymentRequired { message, .. } => {
+                        format!(
+                            "NOT BOOKED: this location requires a payment step first. Server says: {message}. Finish the booking in the official HOTWORX app."
+                        )
+                    }
+                    BookingOutcome::Rejected { message } => {
+                        format!("NOT BOOKED: server rejected the booking: {message}")
+                    }
+                };
+                format!("{verdict}\n\n{}", pretty(&v))
+            }
             Err(e) => format_err(e),
         }
     }

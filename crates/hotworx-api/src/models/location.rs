@@ -16,7 +16,11 @@ pub struct Location {
     pub location_name: String,
     pub location_tier: Option<String>,
     pub tier_badge: Option<String>,
+    /// Fee amounts arrive as strings on some backends and bare numbers
+    /// (`0`) on others; both are exposed as strings.
+    #[serde(default, deserialize_with = "deserialize_optional_string_or_number")]
     pub location_tier_fee: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_string_or_number")]
     pub reciprocal_fees: Option<String>,
     pub currency_symbol: Option<String>,
     pub description: Option<String>,
@@ -44,21 +48,36 @@ pub struct LocationsData {
     pub frequent_locations: Option<Vec<Location>>,
 }
 
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum StringOrNumber {
+    String(String),
+    Int(i64),
+    Float(f64),
+}
+
+impl StringOrNumber {
+    fn into_string(self) -> String {
+        match self {
+            StringOrNumber::String(s) => s,
+            StringOrNumber::Int(i) => i.to_string(),
+            StringOrNumber::Float(f) => f.to_string(),
+        }
+    }
+}
+
 fn deserialize_string_or_number<'de, D>(deserializer: D) -> Result<String, D::Error>
 where
     D: Deserializer<'de>,
 {
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum StringOrNumber {
-        String(String),
-        Int(i64),
-        Float(f64),
-    }
+    StringOrNumber::deserialize(deserializer).map(StringOrNumber::into_string)
+}
 
-    match StringOrNumber::deserialize(deserializer)? {
-        StringOrNumber::String(s) => Ok(s),
-        StringOrNumber::Int(i) => Ok(i.to_string()),
-        StringOrNumber::Float(f) => Ok(f.to_string()),
-    }
+fn deserialize_optional_string_or_number<'de, D>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Option::<StringOrNumber>::deserialize(deserializer).map(|v| v.map(StringOrNumber::into_string))
 }

@@ -70,18 +70,33 @@ and encryption are intentionally out of scope. See the OpenSauna app in this
 repo for a reference implementation that handles AES-256-GCM token-at-rest
 encryption on top of `hotworx-api`.
 
+## Booking outcomes
+
+HOTWORX returns HTTP 200 from `booking/bookSession_v2` whether or not a
+session was created, so never treat a 200 as booked. Call
+[`BookSessionResponse::outcome`] and branch on [`BookingOutcome`]:
+`Accepted` (with the `session_id` when the backend returns one),
+`PaymentRequired` (reciprocal-fee location; the server wants a card or
+confirmation step first and nothing was booked), or `Rejected` (with the
+server's message). Even for `Accepted`, confirm the session appears in
+`get_dashboard` for that date before telling the user it is booked.
+
 ## Errors
 
 Most calls fail with [`HotworxError::AuthExpired`] when the token is no
-longer accepted (HTTP 401/403, or no token set on a call that needs one) —
+longer accepted (HOTWORX's HTTP 551, or 401/403, or no token set on a call
+that needs one) —
 that's the signal to clear stored credentials and ask the user to log in
-again. Other variants cover transport failures, non-auth HTTP errors, and
-unexpected response shapes.
+again. Other variants cover transport failures, non-auth HTTP errors
+(`Http` carries the status and raw body), and 2xx bodies that don't match
+the model (`Decode` carries the serde error plus the first
+`DECODE_BODY_EXCERPT` bytes of the body, so a wire-format change is
+diagnosable from the error text alone).
 
 ## Stability
 
 `0.x` — the public API will move with HOTWORX's wire format. We track the
-HOTWORX Android app version (currently **6.6.3**) in `headers::APP_VERSION`;
+HOTWORX Android app version (currently **6.6.8**) in `headers::APP_VERSION`;
 expect a minor bump every time HOTWORX rolls out an app release that
 changes the protocol.
 

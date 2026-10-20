@@ -54,6 +54,26 @@ async fn server_403_maps_to_auth_expired() {
 }
 
 #[tokio::test]
+async fn server_551_maps_to_auth_expired() {
+    // HOTWORX signals a missing or expired token with its own 551 status
+    // rather than 401; the official app force-logs-out on it.
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/booking/getBookingLocations_v2"))
+        .respond_with(
+            ResponseTemplate::new(551).set_body_string(r#"{"error":"Provided token is expired."}"#),
+        )
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    match client.get_locations().await {
+        Err(HotworxError::AuthExpired) => {}
+        other => panic!("expected AuthExpired, got {:?}", other),
+    }
+}
+
+#[tokio::test]
 async fn server_500_surfaces_as_http_error() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -163,7 +183,7 @@ async fn get_locations_accepts_top_level_shape() {
         .and(path("/api/v1/booking/getBookingLocations_v2"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "locations": [
-                { "location_id": "12345", "location_name": "Rancho Santa Margarita, CA" }
+                { "location_id": "12345", "location_name": "Springfield, XX" }
             ]
         })))
         .mount(&server)
@@ -172,7 +192,7 @@ async fn get_locations_accepts_top_level_shape() {
     let client = client_at(&server);
     let locs = client.get_locations().await.unwrap();
     assert_eq!(locs.len(), 1);
-    assert_eq!(locs[0].location_name, "Rancho Santa Margarita, CA");
+    assert_eq!(locs[0].location_name, "Springfield, XX");
     assert_eq!(locs[0].location_id, "12345");
 }
 
@@ -217,4 +237,132 @@ async fn show_slots_accepts_data_wrapped_form() {
         .unwrap();
     assert_eq!(slots.len(), 1);
     assert_eq!(slots[0].time_slot.as_deref(), Some("10:00"));
+}
+
+#[tokio::test]
+async fn undecodable_body_surfaces_excerpt() {
+    // A 200 whose body doesn't match the model must say what came back,
+    // not just where serde gave up.
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/booking/getBookingLocations_v2"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "locations": [{ "location_id": "1", "location_name": null }]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    match client.get_locations().await {
+        Err(HotworxError::Decode { source, body }) => {
+            // serde names the offending type and offset but not the field;
+            // the body excerpt is what makes the failure diagnosable.
+            assert!(source.to_string().contains("null"), "{}", source);
+            assert!(body.contains("\"location_name\":null"), "{}", body);
+        }
+        other => panic!("expected Decode, got {:?}", other),
+    }
+}
+
+#[tokio::test]
+async fn decode_excerpt_is_truncated() {
+    let server = MockServer::start().await;
+    let long = "x".repeat(5000);
+    Mock::given(method("GET"))
+        .and(path("/api/v1/booking/getBookingLocations_v2"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(format!("<html>{}", long)))
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    match client.get_locations().await {
+        Err(HotworxError::Decode { body, .. }) => {
+            assert!(body.starts_with("<html>"));
+            assert!(body.ends_with('…'));
+            assert!(body.chars().count() <= hotworx_api::DECODE_BODY_EXCERPT + 1);
+        }
+        other => panic!("expected Decode, got {:?}", other),
+    }
+}
+
+#[tokio::test]
+async fn get_locations_accepts_numeric_ids_and_fees() {
+    // Shape of the live body seen 2026-10-19: `location_id` and
+    // `reciprocal_fees` are bare integers, and the whole page failed to load
+    // over it. Values are fixtures, not real studio data.
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/booking/getBookingLocations_v2"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(
+            r#"{"frequently_locations":[{"location_id":101,"location_code":"XX0001","location_name":"Springfield, XX","currency_symbol":"$","reciprocal_fees":0,"description":"","location_tier":"Tier 2","tier_badge":"https:\/\/example.invalid\/tier2.png","is_allow":"yes"}],"locations":[{"location_id":101,"location_code":"XX0001","location_name":"Springfield, XX ","location_tier":"Tier 2","currency_symbol":"$","reciprocal_fees":0,"description":"","tier_badge":"https:\/\/example.invalid\/tier2.png","is_allow":"yes"}],"session_type":{"by_session_type":"By Session Type"}}"#,
+        ))
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    let locs = client.get_locations().await.unwrap();
+    assert_eq!(locs.len(), 1);
+    assert_eq!(locs[0].location_id, "101");
+    assert_eq!(locs[0].reciprocal_fees.as_deref(), Some("0"));
+    assert!(locs[0].is_allowed());
+}
+
+#[tokio::test]
+async fn calorie_stats_is_a_post_and_accepts_array_wrapped_data() {
+    // Live shape seen 2026-10-20: `data` is a one-element array. The live
+    // server only routes POST here (GET gives 405). Fixture values.
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/v1/general/view_calorie_stats"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "msg": "success",
+            "data": [{
+                "total_calories_burned": "1000",
+                "total_session": "10",
+                "code": 200,
+                "status": true,
+                "workout_calories_burned": "600",
+                "total_one_hour_burned": "400"
+            }]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    let stats = client.get_calorie_stats().await.unwrap();
+    assert_eq!(stats.total_session.as_deref(), Some("10"));
+    assert_eq!(stats.total_calories_burned.as_deref(), Some("1000"));
+}
+
+#[tokio::test]
+async fn calorie_stats_accepts_bare_object_data() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/v1/general/view_calorie_stats"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": { "total_session": "7" }
+        })))
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    let stats = client.get_calorie_stats().await.unwrap();
+    assert_eq!(stats.total_session.as_deref(), Some("7"));
+}
+
+#[tokio::test]
+async fn view_goals_is_a_get() {
+    // POSTing here gets a 405 HTML page from the server (probed 2026-10-20).
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/general/viewGoals"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": { "weekly_session_goal": "4", "target_weight": 150 }
+        })))
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    let goals = client.view_goals().await.unwrap();
+    assert_eq!(goals.weekly_session_goal.as_deref(), Some("4"));
 }
