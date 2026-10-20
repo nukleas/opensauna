@@ -357,7 +357,8 @@ impl HotworxClient {
 
     /// View the user's current goal settings.
     pub async fn view_goals(&self) -> Result<GoalsData> {
-        let env: Envelope<GoalsData> = self.post_form("general/viewGoals", &[], true).await?;
+        // GET only: the server answers a POST with 405 (observed 2026-10-20).
+        let env: Envelope<GoalsData> = self.get("general/viewGoals", true).await?;
         env.into_data()
     }
 
@@ -447,10 +448,29 @@ impl HotworxClient {
 
     /// Lifetime calorie statistics.
     pub async fn get_calorie_stats(&self) -> Result<CalorieStats> {
-        let env: Envelope<CalorieStats> = self
-            .post_form("general/view_calorie_stats", &[], true)
-            .await?;
-        env.into_data()
+        // `data` is a bare object on some backends and a one-element array
+        // on others (observed 2026-10-20). Accept both.
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum OneOrMany {
+            One(Box<CalorieStats>),
+            Many(Vec<CalorieStats>),
+        }
+        // `Envelope`'s defaulted `data` field needs this; a missing `data`
+        // is reported by `into_data`, never seen as an empty list.
+        impl Default for OneOrMany {
+            fn default() -> Self {
+                OneOrMany::Many(Vec::new())
+            }
+        }
+        let env: Envelope<OneOrMany> = self.get("general/view_calorie_stats", true).await?;
+        match env.into_data()? {
+            OneOrMany::One(stats) => Ok(*stats),
+            OneOrMany::Many(mut list) => list.drain(..).next().ok_or_else(|| HotworxError::Http {
+                status: 200,
+                body: "view_calorie_stats returned an empty `data` array".into(),
+            }),
+        }
     }
 
     // ─── Activity history ────────────────────────────────────────────────

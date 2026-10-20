@@ -306,3 +306,63 @@ async fn get_locations_accepts_numeric_ids_and_fees() {
     assert_eq!(locs[0].reciprocal_fees.as_deref(), Some("0"));
     assert!(locs[0].is_allowed());
 }
+
+#[tokio::test]
+async fn calorie_stats_is_a_get_and_accepts_array_wrapped_data() {
+    // Live shape seen 2026-10-20: `data` is a one-element array. The
+    // official app issues a GET for this endpoint. Fixture values.
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/general/view_calorie_stats"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "msg": "success",
+            "data": [{
+                "total_calories_burned": "1000",
+                "total_session": "10",
+                "code": 200,
+                "status": true,
+                "workout_calories_burned": "600",
+                "total_one_hour_burned": "400"
+            }]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    let stats = client.get_calorie_stats().await.unwrap();
+    assert_eq!(stats.total_session.as_deref(), Some("10"));
+    assert_eq!(stats.total_calories_burned.as_deref(), Some("1000"));
+}
+
+#[tokio::test]
+async fn calorie_stats_accepts_bare_object_data() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/general/view_calorie_stats"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": { "total_session": "7" }
+        })))
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    let stats = client.get_calorie_stats().await.unwrap();
+    assert_eq!(stats.total_session.as_deref(), Some("7"));
+}
+
+#[tokio::test]
+async fn view_goals_is_a_get() {
+    // POSTing here gets a 405 HTML page from the server (observed 2026-10-20).
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/general/viewGoals"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": { "weekly_session_goal": "4", "target_weight": 150 }
+        })))
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    let goals = client.view_goals().await.unwrap();
+    assert_eq!(goals.weekly_session_goal.as_deref(), Some("4"));
+}
