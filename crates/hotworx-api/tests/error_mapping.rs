@@ -54,6 +54,27 @@ async fn server_403_maps_to_auth_expired() {
 }
 
 #[tokio::test]
+async fn server_551_maps_to_auth_expired() {
+    // HOTWORX signals a missing or expired token with its own 551 status
+    // rather than 401; the official app force-logs-out on it.
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/booking/getBookingLocations_v2"))
+        .respond_with(
+            ResponseTemplate::new(551)
+                .set_body_string(r#"{"error":"Provided token is expired."}"#),
+        )
+        .mount(&server)
+        .await;
+
+    let client = client_at(&server);
+    match client.get_locations().await {
+        Err(HotworxError::AuthExpired) => {}
+        other => panic!("expected AuthExpired, got {:?}", other),
+    }
+}
+
+#[tokio::test]
 async fn server_500_surfaces_as_http_error() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))

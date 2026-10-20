@@ -13,8 +13,10 @@ pub type Result<T> = std::result::Result<T, HotworxError>;
 /// and surfaced verbatim.
 #[derive(Debug, Error)]
 pub enum HotworxError {
-    /// The server rejected the request with HTTP 401 or 403, or the client
-    /// was constructed without a token for an endpoint that needs one.
+    /// The server rejected the request as unauthenticated (HOTWORX uses its
+    /// own HTTP 551 for a missing or expired token; 401 and 403 are also
+    /// accepted), or the client was constructed without a token for an
+    /// endpoint that needs one.
     /// Callers should clear any stored token and prompt the user to sign in.
     #[error("authentication required or token expired")]
     AuthExpired,
@@ -35,9 +37,10 @@ pub enum HotworxError {
 
 impl HotworxError {
     /// Build an [`HotworxError::Http`] from a status code and an arbitrary
-    /// body, mapping 401 and 403 to [`HotworxError::AuthExpired`].
+    /// body, mapping 401, 403 and HOTWORX's custom 551 ("token not provided"
+    /// / "provided token is expired") to [`HotworxError::AuthExpired`].
     pub(crate) fn from_status(status: u16, body: String) -> Self {
-        if status == 401 || status == 403 {
+        if matches!(status, 401 | 403 | 551) {
             HotworxError::AuthExpired
         } else {
             HotworxError::Http { status, body }

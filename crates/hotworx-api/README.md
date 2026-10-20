@@ -73,7 +73,8 @@ encryption on top of `hotworx-api`.
 ## Errors
 
 Most calls fail with [`HotworxError::AuthExpired`] when the token is no
-longer accepted (HTTP 401/403, or no token set on a call that needs one) —
+longer accepted (HOTWORX's HTTP 551, or 401/403, or no token set on a call
+that needs one) —
 that's the signal to clear stored credentials and ask the user to log in
 again. Other variants cover transport failures, non-auth HTTP errors, and
 unexpected response shapes.
