@@ -134,21 +134,22 @@ pub struct BookSessionRequest {
     pub message_popup: Option<String>,
 }
 
-/// Response for bookSession API
-#[derive(Debug, Clone, Deserialize)]
-pub struct BookSessionResponse {
-    pub status: Option<String>,
-    pub msg: Option<String>,
-    pub message: Option<String>,
-    pub error: Option<String>,
-    pub data: Option<BookedSessionData>,
-}
-
-/// IDs returned after a successful booking, needed for cancellation.
-#[derive(Debug, Clone, Deserialize)]
-pub struct BookedSessionData {
-    pub session_record_id: Option<String>,
-    pub lead_record_id: Option<String>,
+/// Classified result of `api_book_session`. Mirrors `hotworx_api::BookingOutcome`
+/// (tagged on `outcome`); the classification lives in the crate so the
+/// frontend never re-derives it from the raw body.
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+pub enum BookingResult {
+    /// Server accepted the booking. `session_id` may be absent on older
+    /// backends; callers verify against the dashboard either way.
+    Accepted { session_id: Option<String> },
+    /// Nothing booked: the location wants a payment step first.
+    PaymentRequired {
+        message: String,
+        add_card_url: Option<String>,
+    },
+    /// Nothing booked: the server refused.
+    Rejected { message: String },
 }
 
 /// Request to cancel/delete a session
@@ -171,11 +172,4 @@ pub struct GetLevelTwoRequest {
 pub struct SessionType {
     pub slot: Option<String>,
     pub value: Option<String>,
-}
-
-impl BookSessionResponse {
-    /// Returns `true` if the booking succeeded (has data, no error).
-    pub fn is_success(&self) -> bool {
-        self.error.is_none() && self.data.is_some()
-    }
 }

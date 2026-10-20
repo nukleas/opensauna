@@ -17,7 +17,7 @@ use aes_gcm::{
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use hotworx_api::{
-    password_hash, ActivityPage, BookSessionResponse, CalorieStats, DailySummary, DashboardData,
+    password_hash, ActivityPage, BookingOutcome, CalorieStats, DailySummary, DashboardData,
     GoalsData, HotworxClient, HotworxError, Location, LoginResponse, NinetyDaySummary, ProfileData,
     SessionType, ThirtyDaySummary, TimeSlot, WeightEntry,
 };
@@ -319,9 +319,9 @@ async fn api_book_session(
     booking_date: String,
     session_type: String,
     location_id: String,
-) -> Result<BookSessionResponse, String> {
+) -> Result<BookingOutcome, String> {
     let client = build_client(&app).await?;
-    client
+    let resp = client
         .book_session(
             &location_id,
             &booking_date,
@@ -330,7 +330,15 @@ async fn api_book_session(
             &time_slot,
         )
         .await
-        .map_err(ipc_error)
+        .map_err(ipc_error)?;
+    let outcome = resp.outcome();
+    if !matches!(outcome, BookingOutcome::Accepted { .. }) {
+        eprintln!(
+            "[API] bookSession_v2 {} {} at {}: {:?}",
+            booking_date, time_slot, location_id, outcome
+        );
+    }
+    Ok(outcome)
 }
 
 #[tauri::command(rename_all = "camelCase")]

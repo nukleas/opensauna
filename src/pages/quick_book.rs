@@ -163,7 +163,14 @@ pub fn QuickBookPage() -> impl IntoView {
             let outcome = book_slots(auth, toast, bookables, loc_id, date, booking_progress).await;
 
             if outcome.all_succeeded() {
-                toast.success(format!("Booked {} session(s)!", outcome.total));
+                if outcome.verified {
+                    toast.success(format!("Booked {} session(s), confirmed on your schedule.", outcome.total));
+                } else {
+                    toast.success(format!(
+                        "Booked {} session(s). Could not re-check your schedule, please confirm it on the dashboard.",
+                        outcome.total
+                    ));
+                }
                 navigate_to("/");
             } else {
                 error.set(Some(format!(

@@ -70,6 +70,17 @@ and encryption are intentionally out of scope. See the OpenSauna app in this
 repo for a reference implementation that handles AES-256-GCM token-at-rest
 encryption on top of `hotworx-api`.
 
+## Booking outcomes
+
+HOTWORX returns HTTP 200 from `booking/bookSession_v2` whether or not a
+session was created, so never treat a 200 as booked. Call
+[`BookSessionResponse::outcome`] and branch on [`BookingOutcome`]:
+`Accepted` (with the `session_id` when the backend returns one),
+`PaymentRequired` (reciprocal-fee location; the server wants a card or
+confirmation step first and nothing was booked), or `Rejected` (with the
+server's message). Even for `Accepted`, confirm the session appears in
+`get_dashboard` for that date before telling the user it is booked.
+
 ## Errors
 
 Most calls fail with [`HotworxError::AuthExpired`] when the token is no
